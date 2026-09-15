@@ -20,6 +20,7 @@ from src.config import (
     FIGURES_DIR,
     METRICS_DIR,
     MODELS_DIR,
+    PREDICTIONS_DIR,
     RANDOM_STATE,
 )
 from src.data_loader import (
@@ -40,17 +41,18 @@ def build_feature_matrix(
     dataframe: pd.DataFrame,
     feature_set: str,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Extract handcrafted features and labels from a dataframe."""
+    """Extract handcrafted features and labels from a dataset split dataframe."""
     feature_vectors = []
+    total_samples = len(dataframe)
 
     for position, (_, row) in enumerate(dataframe.iterrows(), start=1):
         _, image_gray = preprocess_image(row["image_path"])
         feature_vector = extract_features(image_gray, feature_set)
         feature_vectors.append(feature_vector)
 
-        if position % 50 == 0 or position == len(dataframe):
+        if position % 50 == 0 or position == total_samples:
             print(
-                f"Extracted {position}/{len(dataframe)} "
+                f"Extracted {position}/{total_samples} "
                 f"{feature_set} feature vectors."
             )
 
@@ -84,7 +86,7 @@ def save_confusion_matrix(
     y_pred: np.ndarray,
     class_names: list[str],
 ) -> None:
-    """Save normalized test confusion matrix."""
+    """Save normalized test confusion matrix heatmap figure."""
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
     matrix = confusion_matrix(
@@ -129,7 +131,7 @@ def save_error_cases(
     class_names: list[str],
     max_examples: int = 9,
 ) -> None:
-    """Save a grid of incorrectly classified test images."""
+    """Save a visual grid of misclassified test images with file names and confidence."""
     error_indices = np.flatnonzero(y_true != y_pred)
 
     if len(error_indices) == 0:
@@ -148,9 +150,8 @@ def save_error_cases(
     axes = np.atleast_1d(axes).ravel()
 
     for axis, sample_index in zip(axes, selected_indices):
-        image_bgr, _ = preprocess_image(
-            test_dataframe.iloc[sample_index]["image_path"]
-        )
+        row = test_dataframe.iloc[sample_index]
+        image_bgr, _ = preprocess_image(row["image_path"])
         image_rgb = image_bgr[:, :, ::-1]
 
         true_label = int(y_true[sample_index])
@@ -159,9 +160,10 @@ def save_error_cases(
 
         axis.imshow(image_rgb)
         axis.set_title(
+            f"File: {row['filename']}\n"
             f"True: {class_names[true_label]}\n"
             f"Pred: {class_names[predicted_label]}\n"
-            f"Probability: {confidence:.2f}",
+            f"Confidence: {confidence:.2%}",
             fontsize=9,
         )
         axis.axis("off")
@@ -180,7 +182,36 @@ def save_error_cases(
     fig.savefig(output_path, dpi=200, bbox_inches="tight")
     plt.close(fig)
 
-    print(f"Saved error cases: {output_path}")
+    print(f"Saved error cases figure: {output_path}")
+
+
+def save_prediction_tables(
+    test_dataframe: pd.DataFrame,
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    probabilities: np.ndarray,
+    class_names: list[str],
+) -> None:
+    """Export complete test predictions and misclassified samples to CSV files."""
+    PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
+
+    results_df = test_dataframe.copy()
+    results_df["true_label"] = y_true
+    results_df["true_class"] = [class_names[label] for label in y_true]
+    results_df["predicted_label"] = y_pred
+    results_df["predicted_class"] = [class_names[label] for label in y_pred]
+    results_df["confidence"] = np.max(probabilities, axis=1)
+    results_df["is_correct"] = y_true == y_pred
+
+    all_predictions_path = PREDICTIONS_DIR / "test_predictions.csv"
+    results_df.to_csv(all_predictions_path, index=False)
+
+    misclassified_df = results_df[~results_df["is_correct"]].reset_index(drop=True)
+    misclassified_path = PREDICTIONS_DIR / "misclassified_test_samples.csv"
+    misclassified_df.to_csv(misclassified_path, index=False)
+
+    print(f"Saved all predictions: {all_predictions_path}")
+    print(f"Saved misclassified samples table ({len(misclassified_df)} errors): {misclassified_path}")
 
 
 def save_metrics(
@@ -192,32 +223,33 @@ def save_metrics(
     n_train_val: int,
     n_test: int,
 ) -> None:
-  """Save final test metrics and classification report."""
-  METRICS_DIR.mkdir(parents=True, exist_ok=True)
+    """Save final test metrics and classification report."""
+    METRICS_DIR.mkdir(parents=True, exist_ok=True)
 
-  metrics = {
-      "final_feature_set": FINAL_FEATURE_SET,
-      "C": FINAL_C,
-      "gamma": FINAL_GAMMA,
-      "feature_dimension": feature_dimension,
-      "train_seconds": train_seconds,
-      "test_accuracy": test_accuracy,
-      "test_macro_f1": test_macro_f1,
-      "n_train_plus_val": n_train_val,
-      "n_test": n_test,
-  }
+    metrics = {
+        "final_feature_set": FINAL_FEATURE_SET,
+        "C": FINAL_C,
+        "gamma": FINAL_GAMMA,
+        "feature_dimension": feature_dimension,
+        "train_seconds": train_seconds,
+        "test_accuracy": test_accuracy,
+        "test_macro_f1": test_macro_f1,
+        "n_train_plus_val": n_train_val,
+        "n_test": n_test,
+    }
 
-  metrics_path = METRICS_DIR / "final_test_metrics.json"
-  report_path = METRICS_DIR / "final_classification_report.txt"
+    metrics_path = METRICS_DIR / "final_test_metrics.json"
+    report_path = METRICS_DIR / "final_classification_report.txt"
 
-  with metrics_path.open("w", encoding="utf-8") as file:
-    json.dump(metrics, file, indent=2)
+    with metrics_path.open("w", encoding="utf-8") as file:
+        json.dump(metrics, file, indent=2)
 
-  with report_path.open("w", encoding="utf-8") as file:
-    file.write(report_text)
+    with report_path.open("w", encoding="utf-8") as file:
+        file.write(report_text)
 
-  print(f"Saved test metrics: {metrics_path}")
-  print(f"Saved classification report: {report_path}")
+    print(f"Saved test metrics: {metrics_path}")
+    print(f"Saved classification report: {report_path}")
+
 
 def main() -> None:
     train_dataframe = load_split("train")
@@ -309,6 +341,14 @@ def main() -> None:
         class_names=class_names,
     )
 
+    save_prediction_tables(
+        test_dataframe=test_dataframe,
+        y_true=y_test,
+        y_pred=y_test_pred,
+        probabilities=test_probabilities,
+        class_names=class_names,
+    )
+
     save_metrics(
         test_accuracy=test_accuracy,
         test_macro_f1=test_macro_f1,
@@ -318,6 +358,7 @@ def main() -> None:
         n_train_val=len(train_val_dataframe),
         n_test=len(test_dataframe),
     )
+
 
 if __name__ == "__main__":
     main()
