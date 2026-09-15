@@ -1,0 +1,39 @@
+# Virtual environment & Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+*.DS_Store
+
+# Raw Dataset Images (ignore images, keep folders via .gitkeep)
+**/data/raw/**/*.jpg
+**/data/raw/**/*.jpeg
+**/data/raw/**/*.png
+**/data/raw/**/*.bmp
+**/data/raw/**/*.zip
+**/data/raw/**/*.rar
+**/data/raw/*.jpg
+**/data/raw/*.jpeg
+**/data/raw/*.png
+
+# Splits & processed features/data
+**/data/splits/*.csv
+**/data/splits/*.npy
+**/data/splits/*.npz
+
+# Trained Models & Weights
+**/models/*.pkl
+**/models/*.joblib
+
+# Generated Results
+**/results/figures/*.png
+**/results/figures/*.jpg
+**/results/figures/*.pdf
+**/results/metrics/*.json
+**/results/metrics/*.csv
+**/results/predictions/*.csv
+
+# Cloned reference repos
+references/Plant-Leaf-Identification/
