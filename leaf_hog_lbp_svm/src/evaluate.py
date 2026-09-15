@@ -1,4 +1,6 @@
+import argparse
 import json
+from pathlib import Path
 from time import perf_counter
 
 import joblib
@@ -32,95 +34,96 @@ from src.features import extract_features
 from src.preprocess import preprocess_image
 
 
-FINAL_FEATURE_SET = "lbp"
-FINAL_C = 100
-FINAL_GAMMA = 0.01
-
-
 def build_feature_matrix(
     dataframe: pd.DataFrame,
     feature_set: str,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Extract handcrafted features and labels from a dataset split dataframe."""
-    feature_vectors = []
-    total_samples = len(dataframe)
+  """Extract handcrafted features and labels from a dataset split dataframe."""
+  feature_vectors = []
+  total_samples = len(dataframe)
 
-    for position, (_, row) in enumerate(dataframe.iterrows(), start=1):
-        _, image_gray = preprocess_image(row["image_path"])
-        feature_vector = extract_features(image_gray, feature_set)
-        feature_vectors.append(feature_vector)
+  for position, (_, row) in enumerate(dataframe.iterrows(), start=1):
+    _, image_gray = preprocess_image(row["image_path"])
+    feature_vector = extract_features(image_gray, feature_set)
+    feature_vectors.append(feature_vector)
 
-        if position % 50 == 0 or position == total_samples:
-            print(
-                f"Extracted {position}/{total_samples} "
-                f"{feature_set} feature vectors."
-            )
+    if position % 50 == 0 or position == total_samples:
+      print(
+          f"Extracted {position}/{total_samples} "
+          f"{feature_set} feature vectors."
+      )
 
-    X = np.vstack(feature_vectors)
-    y = dataframe["label"].to_numpy(dtype=np.int64)
+  X = np.vstack(feature_vectors)
+  y = dataframe["label"].to_numpy(dtype=np.int64)
 
-    return X, y
+  return X, y
 
 
-def create_final_model() -> Pipeline:
-    """Create the final scaled RBF-SVM using validation-selected parameters."""
-    return Pipeline(
-        steps=[
-            ("scaler", StandardScaler()),
-            (
-                "svm",
-                SVC(
-                    kernel="rbf",
-                    C=FINAL_C,
-                    gamma=FINAL_GAMMA,
-                    probability=True,
-                    random_state=RANDOM_STATE,
-                ),
-            ),
-        ]
-    )
+def create_final_model(C: float, gamma: str | float) -> Pipeline:
+  """Create the final scaled RBF-SVM using validation-selected parameters."""
+  return Pipeline(
+      steps=[
+          ("scaler", StandardScaler()),
+          (
+              "svm",
+              SVC(
+                  kernel="rbf",
+                  C=C,
+                  gamma=gamma,
+                  probability=True,
+                  random_state=RANDOM_STATE,
+              ),
+          ),
+      ]
+  )
 
 
 def save_confusion_matrix(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     class_names: list[str],
+    feature_set: str,
 ) -> None:
-    """Save normalized test confusion matrix heatmap figure."""
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+  """Save normalized test confusion matrix heatmap figure."""
+  FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
-    matrix = confusion_matrix(
-        y_true,
-        y_pred,
-        labels=np.arange(len(class_names)),
-        normalize="true",
-    )
+  matrix = confusion_matrix(
+      y_true,
+      y_pred,
+      labels=np.arange(len(class_names)),
+      normalize="true",
+  )
 
-    fig, axis = plt.subplots(figsize=(11, 9))
+  num_classes = len(class_names)
+  fig_size = (16, 14) if num_classes > 15 else (11, 9)
+  fig, axis = plt.subplots(figsize=fig_size)
 
-    sns.heatmap(
-        matrix,
-        annot=True,
-        fmt=".2f",
-        cmap="Blues",
-        xticklabels=class_names,
-        yticklabels=class_names,
-        cbar_kws={"label": "Recall per true class"},
-        ax=axis,
-    )
+  sns.heatmap(
+      matrix,
+      annot=num_classes <= 32,
+      fmt=".2f",
+      cmap="Blues",
+      xticklabels=class_names,
+      yticklabels=class_names,
+      annot_kws={"size": 7 if num_classes > 15 else 9},
+      cbar_kws={"label": "Recall per true class"},
+      ax=axis,
+  )
 
-    axis.set_xlabel("Predicted class")
-    axis.set_ylabel("True class")
-    axis.set_title("Normalized Confusion Matrix: Final LBP + RBF-SVM")
-    plt.xticks(rotation=45, ha="right")
-    plt.yticks(rotation=0)
+  axis.set_xlabel("Predicted class")
+  axis.set_ylabel("True class")
+  axis.set_title(
+      f"Normalized Confusion Matrix: Final {feature_set.upper()} + RBF-SVM"
+  )
+  plt.xticks(rotation=45, ha="right", fontsize=8 if num_classes > 15 else 10)
+  plt.yticks(rotation=0, fontsize=8 if num_classes > 15 else 10)
 
-    fig.tight_layout()
-    output_path = FIGURES_DIR / "confusion_matrix_final_lbp.png"
-    fig.savefig(output_path, dpi=200, bbox_inches="tight")
-    plt.close(fig)
+  fig.tight_layout()
+  output_path = FIGURES_DIR / f"confusion_matrix_final_{feature_set}.png"
+  fig.savefig(str(output_path), dpi=200, bbox_inches="tight")
+  plt.close(fig)
 
-    print(f"Saved confusion matrix: {output_path}")
+  print(f"Saved confusion matrix: {output_path}")
 
 
 def save_error_cases(
@@ -129,60 +132,60 @@ def save_error_cases(
     y_pred: np.ndarray,
     probabilities: np.ndarray,
     class_names: list[str],
+    feature_set: str,
     max_examples: int = 9,
 ) -> None:
-    """Save a visual grid of misclassified test images with file names and confidence."""
-    error_indices = np.flatnonzero(y_true != y_pred)
+  """Save a visual grid of misclassified test images with file names and confidence."""
+  error_indices = np.flatnonzero(y_true != y_pred)
 
-    if len(error_indices) == 0:
-        print("No misclassified test images; error case figure was not created.")
-        return
+  if len(error_indices) == 0:
+    print("No misclassified test images; error case figure was not created.")
+    return
 
-    selected_indices = error_indices[:max_examples]
-    columns = 3
-    rows = int(np.ceil(len(selected_indices) / columns))
+  FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+  selected_indices = error_indices[:max_examples]
+  n_samples = len(selected_indices)
 
-    fig, axes = plt.subplots(
-        rows,
-        columns,
-        figsize=(12, 4 * rows),
+  cols = 3
+  rows = int(np.ceil(n_samples / cols))
+  fig, axes = plt.subplots(rows, cols, figsize=(cols * 4, rows * 4))
+  axes = np.atleast_1d(axes).flatten()
+
+  for plot_idx, error_idx in enumerate(selected_indices):
+    image_path = Path(test_dataframe.iloc[error_idx]["image_path"])
+    true_label = y_true[error_idx]
+    pred_label = y_pred[error_idx]
+
+    true_name = class_names[true_label]
+    pred_name = class_names[pred_label]
+    confidence = probabilities[error_idx, pred_label] * 100.0
+
+    image_rgb = plt.imread(str(image_path))
+
+    axes[plot_idx].imshow(image_rgb)
+    axes[plot_idx].set_title(
+        f"File: {image_path.name}\n"
+        f"True: {true_name}\n"
+        f"Pred: {pred_name} ({confidence:.1f}%)",
+        fontsize=9,
+        color="darkred",
     )
-    axes = np.atleast_1d(axes).ravel()
+    axes[plot_idx].axis("off")
 
-    for axis, sample_index in zip(axes, selected_indices):
-        row = test_dataframe.iloc[sample_index]
-        image_bgr, _ = preprocess_image(row["image_path"])
-        image_rgb = image_bgr[:, :, ::-1]
+  for unused_idx in range(n_samples, len(axes)):
+    axes[unused_idx].axis("off")
 
-        true_label = int(y_true[sample_index])
-        predicted_label = int(y_pred[sample_index])
-        confidence = float(probabilities[sample_index, predicted_label])
+  fig.suptitle(
+      f"Misclassified Test Samples ({feature_set.upper()} + RBF-SVM)",
+      fontsize=14,
+  )
+  fig.tight_layout()
 
-        axis.imshow(image_rgb)
-        axis.set_title(
-            f"File: {row['filename']}\n"
-            f"True: {class_names[true_label]}\n"
-            f"Pred: {class_names[predicted_label]}\n"
-            f"Confidence: {confidence:.2%}",
-            fontsize=9,
-        )
-        axis.axis("off")
+  output_path = FIGURES_DIR / f"error_cases_final_{feature_set}.png"
+  fig.savefig(str(output_path), dpi=200, bbox_inches="tight")
+  plt.close(fig)
 
-    for axis in axes[len(selected_indices):]:
-        axis.axis("off")
-
-    fig.suptitle(
-        "Misclassified Test Images: Final LBP + RBF-SVM",
-        fontsize=15,
-    )
-    fig.tight_layout()
-
-    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-    output_path = FIGURES_DIR / "error_cases_final_lbp.png"
-    fig.savefig(output_path, dpi=200, bbox_inches="tight")
-    plt.close(fig)
-
-    print(f"Saved error cases figure: {output_path}")
+  print(f"Saved error cases figure: {output_path}")
 
 
 def save_prediction_tables(
@@ -192,26 +195,29 @@ def save_prediction_tables(
     probabilities: np.ndarray,
     class_names: list[str],
 ) -> None:
-    """Export complete test predictions and misclassified samples to CSV files."""
-    PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
+  """Export comprehensive test predictions and misclassified samples CSV files."""
+  PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
 
-    results_df = test_dataframe.copy()
-    results_df["true_label"] = y_true
-    results_df["true_class"] = [class_names[label] for label in y_true]
-    results_df["predicted_label"] = y_pred
-    results_df["predicted_class"] = [class_names[label] for label in y_pred]
-    results_df["confidence"] = np.max(probabilities, axis=1)
-    results_df["is_correct"] = y_true == y_pred
+  predicted_names = [class_names[pred] for pred in y_pred]
+  confidence_scores = np.max(probabilities, axis=1)
 
-    all_predictions_path = PREDICTIONS_DIR / "test_predictions.csv"
-    results_df.to_csv(all_predictions_path, index=False)
+  predictions_df = test_dataframe.copy()
+  predictions_df["predicted_label"] = y_pred
+  predictions_df["predicted_class"] = predicted_names
+  predictions_df["confidence"] = confidence_scores
+  predictions_df["is_correct"] = y_true == y_pred
 
-    misclassified_df = results_df[~results_df["is_correct"]].reset_index(drop=True)
-    misclassified_path = PREDICTIONS_DIR / "misclassified_test_samples.csv"
-    misclassified_df.to_csv(misclassified_path, index=False)
+  all_preds_path = PREDICTIONS_DIR / "test_predictions.csv"
+  predictions_df.to_csv(all_preds_path, index=False)
+  print(f"Saved all predictions: {all_preds_path}")
 
-    print(f"Saved all predictions: {all_predictions_path}")
-    print(f"Saved misclassified samples table ({len(misclassified_df)} errors): {misclassified_path}")
+  misclassified_df = predictions_df[~predictions_df["is_correct"]].copy()
+  misclassified_path = PREDICTIONS_DIR / "misclassified_test_samples.csv"
+  misclassified_df.to_csv(misclassified_path, index=False)
+  print(
+      f"Saved misclassified samples table ({len(misclassified_df)} errors):"
+      f" {misclassified_path}"
+  )
 
 
 def save_metrics(
@@ -222,143 +228,170 @@ def save_metrics(
     feature_dimension: int,
     n_train_val: int,
     n_test: int,
+    feature_set: str,
 ) -> None:
-    """Save final test metrics and classification report."""
-    METRICS_DIR.mkdir(parents=True, exist_ok=True)
+  """Persist test evaluation metrics to JSON and text summary files."""
+  METRICS_DIR.mkdir(parents=True, exist_ok=True)
 
-    metrics = {
-        "final_feature_set": FINAL_FEATURE_SET,
-        "C": FINAL_C,
-        "gamma": FINAL_GAMMA,
-        "feature_dimension": feature_dimension,
-        "train_seconds": train_seconds,
-        "test_accuracy": test_accuracy,
-        "test_macro_f1": test_macro_f1,
-        "n_train_plus_val": n_train_val,
-        "n_test": n_test,
-    }
+  metrics = {
+      "feature_set": feature_set,
+      "test_accuracy": float(test_accuracy),
+      "test_macro_f1": float(test_macro_f1),
+      "train_seconds": float(train_seconds),
+      "feature_dimension": int(feature_dimension),
+      "n_train_val_samples": int(n_train_val),
+      "n_test_samples": int(n_test),
+  }
 
-    metrics_path = METRICS_DIR / "final_test_metrics.json"
-    report_path = METRICS_DIR / "final_classification_report.txt"
+  json_path = METRICS_DIR / f"final_test_metrics_{feature_set}.json"
+  with open(json_path, "w", encoding="utf-8") as f:
+    json.dump(metrics, f, indent=2)
 
-    with metrics_path.open("w", encoding="utf-8") as file:
-        json.dump(metrics, file, indent=2)
+  with open(METRICS_DIR / "final_test_metrics.json", "w", encoding="utf-8") as f:
+    json.dump(metrics, f, indent=2)
 
-    with report_path.open("w", encoding="utf-8") as file:
-        file.write(report_text)
+  print(f"Saved test metrics: {json_path}")
 
-    print(f"Saved test metrics: {metrics_path}")
-    print(f"Saved classification report: {report_path}")
+  report_path = METRICS_DIR / "final_classification_report.txt"
+  with open(report_path, "w", encoding="utf-8") as f:
+    f.write(report_text)
+  print(f"Saved classification report: {report_path}")
 
 
 def main() -> None:
-    train_dataframe = load_split("train")
-    val_dataframe = load_split("val")
-    test_dataframe = load_split("test")
+  """Fit final SVM on Train+Val and evaluate on Test set."""
+  parser = argparse.ArgumentParser(
+      description="Evaluate leaf classification on test set."
+  )
+  parser.add_argument(
+      "--feature-set",
+      type=str,
+      default="hog_lbp",
+      choices=["hog", "lbp", "hog_lbp"],
+      help="Feature set to evaluate (default: hog_lbp)",
+  )
+  args = parser.parse_args()
 
-    train_val_dataframe = pd.concat(
-        [train_dataframe, val_dataframe],
-        ignore_index=True,
-    )
+  feature_set = args.feature_set
 
-    verify_image_paths(train_val_dataframe)
-    verify_image_paths(test_dataframe)
+  val_metrics_path = METRICS_DIR / f"{feature_set}_validation_metrics.json"
+  if val_metrics_path.exists():
+    with open(val_metrics_path, "r", encoding="utf-8") as f:
+      val_metrics = json.load(f)
+    if "best_validation_result" in val_metrics:
+      best_c = val_metrics["best_validation_result"]["C"]
+      best_gamma = val_metrics["best_validation_result"]["gamma"]
+    else:
+      best_c = val_metrics.get("C", 10)
+      best_gamma = val_metrics.get("gamma", "scale")
+  else:
+    best_c = 10
+    best_gamma = "scale"
 
-    class_names = get_class_names(train_val_dataframe)
+  train_dataframe = load_split("train")
+  val_dataframe = load_split("val")
+  test_dataframe = load_split("test")
 
-    print(
-        "Final model setup:\n"
-        f"Feature set: {FINAL_FEATURE_SET}\n"
-        f"C: {FINAL_C}\n"
-        f"Gamma: {FINAL_GAMMA}\n"
-        f"Train + validation samples: {len(train_val_dataframe)}\n"
-        f"Test samples: {len(test_dataframe)}"
-    )
+  verify_image_paths(train_dataframe)
+  verify_image_paths(val_dataframe)
+  verify_image_paths(test_dataframe)
 
-    X_train_val, y_train_val = build_feature_matrix(
-        train_val_dataframe,
-        FINAL_FEATURE_SET,
-    )
-    X_test, y_test = build_feature_matrix(
-        test_dataframe,
-        FINAL_FEATURE_SET,
-    )
+  class_names = get_class_names(train_dataframe)
 
-    print(
-        f"\nFeature matrix shapes:\n"
-        f"X_train_val: {X_train_val.shape}\n"
-        f"X_test: {X_test.shape}"
-    )
+  train_val_dataframe = (
+      pd.concat([train_dataframe, val_dataframe], ignore_index=True)
+      .sample(frac=1.0, random_state=RANDOM_STATE)
+      .reset_index(drop=True)
+  )
 
-    final_model = create_final_model()
+  print("Final model setup:")
+  print(f"Feature set: {feature_set}")
+  print(f"C: {best_c}")
+  print(f"Gamma: {best_gamma}")
+  print(f"Train + validation samples: {len(train_val_dataframe)}")
+  print(f"Test samples: {len(test_dataframe)}")
 
-    start_time = perf_counter()
-    final_model.fit(X_train_val, y_train_val)
-    train_seconds = perf_counter() - start_time
+  X_train_val, y_train_val = build_feature_matrix(
+      train_val_dataframe, feature_set
+  )
+  X_test, y_test = build_feature_matrix(test_dataframe, feature_set)
 
-    y_test_pred = final_model.predict(X_test)
-    test_probabilities = final_model.predict_proba(X_test)
+  print("\nFeature matrix shapes:")
+  print(f"X_train_val: {X_train_val.shape}")
+  print(f"X_test: {X_test.shape}")
 
-    test_accuracy = accuracy_score(y_test, y_test_pred)
-    test_macro_f1 = f1_score(
-        y_test,
-        y_test_pred,
-        average="macro",
-        zero_division=0,
-    )
+  final_model = create_final_model(C=best_c, gamma=best_gamma)
 
-    report_text = classification_report(
-        y_test,
-        y_test_pred,
-        labels=np.arange(len(class_names)),
-        target_names=class_names,
-        digits=4,
-        zero_division=0,
-    )
+  start_time = perf_counter()
+  final_model.fit(X_train_val, y_train_val)
+  train_seconds = perf_counter() - start_time
 
-    print("\nFinal test results:")
-    print(f"Accuracy: {test_accuracy:.4f}")
-    print(f"Macro F1: {test_macro_f1:.4f}")
-    print("\nClassification report:")
-    print(report_text)
+  y_test_pred = final_model.predict(X_test)
+  test_probabilities = final_model.predict_proba(X_test)
 
-    MODELS_DIR.mkdir(parents=True, exist_ok=True)
-    model_path = MODELS_DIR / "final_lbp_svm.joblib"
-    joblib.dump(final_model, model_path)
-    print(f"Saved final model: {model_path}")
+  test_accuracy = accuracy_score(y_test, y_test_pred)
+  test_macro_f1 = f1_score(
+      y_test,
+      y_test_pred,
+      average="macro",
+      zero_division=0,
+  )
 
-    save_confusion_matrix(
-        y_true=y_test,
-        y_pred=y_test_pred,
-        class_names=class_names,
-    )
+  report_text = classification_report(
+      y_test,
+      y_test_pred,
+      labels=np.arange(len(class_names)),
+      target_names=class_names,
+      digits=4,
+      zero_division=0,
+  )
 
-    save_error_cases(
-        test_dataframe=test_dataframe,
-        y_true=y_test,
-        y_pred=y_test_pred,
-        probabilities=test_probabilities,
-        class_names=class_names,
-    )
+  print("\nFinal test results:")
+  print(f"Accuracy: {test_accuracy:.4f}")
+  print(f"Macro F1: {test_macro_f1:.4f}")
+  print("\nClassification report:")
+  print(report_text)
 
-    save_prediction_tables(
-        test_dataframe=test_dataframe,
-        y_true=y_test,
-        y_pred=y_test_pred,
-        probabilities=test_probabilities,
-        class_names=class_names,
-    )
+  MODELS_DIR.mkdir(parents=True, exist_ok=True)
+  model_path = MODELS_DIR / f"final_{feature_set}_svm.joblib"
+  joblib.dump(final_model, model_path)
+  print(f"Saved final model: {model_path}")
 
-    save_metrics(
-        test_accuracy=test_accuracy,
-        test_macro_f1=test_macro_f1,
-        report_text=report_text,
-        train_seconds=train_seconds,
-        feature_dimension=X_train_val.shape[1],
-        n_train_val=len(train_val_dataframe),
-        n_test=len(test_dataframe),
-    )
+  save_confusion_matrix(
+      y_true=y_test,
+      y_pred=y_test_pred,
+      class_names=class_names,
+      feature_set=feature_set,
+  )
+
+  save_error_cases(
+      test_dataframe=test_dataframe,
+      y_true=y_test,
+      y_pred=y_test_pred,
+      probabilities=test_probabilities,
+      class_names=class_names,
+      feature_set=feature_set,
+  )
+
+  save_prediction_tables(
+      test_dataframe=test_dataframe,
+      y_true=y_test,
+      y_pred=y_test_pred,
+      probabilities=test_probabilities,
+      class_names=class_names,
+  )
+
+  save_metrics(
+      test_accuracy=test_accuracy,
+      test_macro_f1=test_macro_f1,
+      report_text=report_text,
+      train_seconds=train_seconds,
+      feature_dimension=X_train_val.shape[1],
+      n_train_val=len(train_val_dataframe),
+      n_test=len(test_dataframe),
+      feature_set=feature_set,
+  )
 
 
 if __name__ == "__main__":
-    main()
+  main()

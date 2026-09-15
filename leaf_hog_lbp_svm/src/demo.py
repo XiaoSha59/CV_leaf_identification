@@ -13,19 +13,19 @@ from src.features import extract_features
 from src.preprocess import preprocess_image
 
 
-FINAL_MODEL_PATH = MODELS_DIR / "final_lbp_svm.joblib"
-FINAL_FEATURE_SET = "lbp"
+def load_final_model(feature_set: str = "hog_lbp"):
+    """Load the trained RBF-SVM pipeline for the requested feature set."""
+    model_path = MODELS_DIR / f"final_{feature_set}_svm.joblib"
+    if not model_path.exists():
+        model_path = MODELS_DIR / f"{feature_set}_svm.joblib"
 
-
-def load_final_model():
-    """Load the final validation-selected LBP + RBF-SVM pipeline."""
-    if not FINAL_MODEL_PATH.exists():
+    if not model_path.exists():
         raise FileNotFoundError(
-            f"Final model not found: {FINAL_MODEL_PATH}\n"
-            "Run `python -m src.evaluate` first."
+            f"Model not found: {model_path}\n"
+            "Run `python -m src.evaluate` or `python -m src.train` first."
         )
 
-    return joblib.load(FINAL_MODEL_PATH)
+    return joblib.load(model_path)
 
 
 def get_class_names() -> list[str]:
@@ -60,13 +60,15 @@ def get_true_label_if_available(image_path: Path) -> str | None:
         ignore_index=True,
     )
 
-    resolved_input_path = image_path.resolve()
+    matched = all_splits[
+        all_splits["image_path"].astype(str) == str(image_path.resolve())
+    ]
+    if not matched.empty:
+        return matched.iloc[0]["class_name"]
 
-    for _, row in all_splits.iterrows():
-        saved_path = Path(row["image_path"]).resolve()
-
-        if saved_path == resolved_input_path:
-            return str(row["class_name"])
+    matched_by_name = all_splits[all_splits["filename"] == image_path.name]
+    if not matched_by_name.empty:
+        return matched_by_name.iloc[0]["class_name"]
 
     return None
 
@@ -75,13 +77,14 @@ def predict_image(
     model,
     image_path: Path,
     class_names: list[str],
+    feature_set: str = "hog_lbp",
 ) -> tuple[str, float, list[tuple[str, float]], np.ndarray]:
-    """Predict one image and return label, confidence, top-3, and original RGB."""
+    """Extract features, predict class probabilities, and return top predictions."""
     image_bgr, image_gray = preprocess_image(image_path)
 
     feature_vector = extract_features(
         image_gray,
-        feature_set=FINAL_FEATURE_SET,
+        feature_set=feature_set,
     )
 
     probabilities = model.predict_proba(
@@ -110,6 +113,7 @@ def save_demo_figure(
     confidence: float,
     top_predictions: list[tuple[str, float]],
     true_class: str | None,
+    feature_set: str = "hog_lbp",
 ) -> Path:
     """Save input image, final prediction, and top-3 probability chart."""
     PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
@@ -132,53 +136,49 @@ def save_demo_figure(
     image_axis.axis("off")
 
     title_lines = [
+        f"Model: {feature_set.upper()} + RBF-SVM",
         f"Predicted: {predicted_class}",
         f"Confidence: {confidence:.2%}",
     ]
 
     if true_class is not None:
-        title_lines.insert(0, f"True: {true_class}")
+        title_lines.insert(1, f"True: {true_class}")
 
-    image_axis.set_title("\n".join(title_lines), fontsize=12)
+    image_axis.set_title("\n".join(title_lines), fontsize=11)
 
-    probability_axis = axes[1]
-    colors = ["#59A14F", "#4C78A8", "#B0B0B0"]
-
-    probability_axis.barh(
+    chart_axis = axes[1]
+    bars = chart_axis.barh(
         class_labels[::-1],
         class_probabilities[::-1],
-        color=colors[::-1],
+        color="#1f77b4",
     )
-    probability_axis.set_xlim(0, 100)
-    probability_axis.set_xlabel("Probability (%)")
-    probability_axis.set_title("Top-3 Predictions")
-    probability_axis.grid(axis="x", alpha=0.25)
+    chart_axis.set_xlim(0, 100)
+    chart_axis.set_xlabel("Probability (%)")
+    chart_axis.set_title("Top-3 Predictions")
 
-    for index, value in enumerate(class_probabilities[::-1]):
-        probability_axis.text(
-            value + 1,
-            index,
-            f"{value:.2f}%",
+    for bar in bars:
+        width = bar.get_width()
+        chart_axis.text(
+            width + 1,
+            bar.get_y() + bar.get_height() / 2,
+            f"{width:.1f}%",
             va="center",
+            ha="left",
             fontsize=10,
         )
 
-    fig.suptitle(
-        f"Leaf Classification Demo: {image_path.name}",
-        fontsize=14,
-    )
     fig.tight_layout()
-
     output_path = PREDICTIONS_DIR / f"demo_{image_path.stem}.png"
-    fig.savefig(output_path, dpi=200, bbox_inches="tight")
+    fig.savefig(str(output_path), dpi=200, bbox_inches="tight")
     plt.close(fig)
 
     return output_path
 
 
 def main() -> None:
+    """Run inference on a single image and save a visualization chart."""
     parser = argparse.ArgumentParser(
-        description="Predict a leaf class with the final Uniform LBP + RBF-SVM model."
+        description="Predict a leaf class with the final RBF-SVM model."
     )
     parser.add_argument(
         "--image",
@@ -186,23 +186,32 @@ def main() -> None:
         required=True,
         help="Path to an image, e.g. data/raw/Flavia/1001.jpg",
     )
+    parser.add_argument(
+        "--feature-set",
+        type=str,
+        default="hog_lbp",
+        choices=["hog", "lbp", "hog_lbp"],
+        help="Feature set to use for inference (default: hog_lbp)",
+    )
     args = parser.parse_args()
 
     if not args.image.exists():
         raise FileNotFoundError(f"Input image not found: {args.image}")
 
-    model = load_final_model()
+    feature_set = args.feature_set
+    model = load_final_model(feature_set=feature_set)
     class_names = get_class_names()
 
     predicted_class, confidence, top_predictions, image_rgb = predict_image(
         model=model,
         image_path=args.image,
         class_names=class_names,
+        feature_set=feature_set,
     )
 
     true_class = get_true_label_if_available(args.image)
 
-    print("\nFinal model: Uniform LBP + RBF-SVM")
+    print(f"\nFinal model: {feature_set.upper()} + RBF-SVM")
     print(f"Input image: {args.image}")
     print(f"Predicted class: {predicted_class}")
 
@@ -225,6 +234,7 @@ def main() -> None:
         confidence=confidence,
         top_predictions=top_predictions,
         true_class=true_class,
+        feature_set=feature_set,
     )
 
     print(f"\nSaved demo figure: {output_path}")

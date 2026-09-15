@@ -1,0 +1,11 @@
+{
+  "final_feature_set": "lbp",
+  "C": 100,
+  "gamma": 0.01,
+  "feature_dimension": 10,
+  "train_seconds": 0.05080450000241399,
+  "test_accuracy": 0.9032258064516129,
+  "test_macro_f1": 0.9072335958861737,
+  "n_train_plus_val": 523,
+  "n_test": 93
+}

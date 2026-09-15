@@ -44,7 +44,7 @@ def visualize_features(image_path: Path) -> Path:
     axes[0].axis("off")
 
     axes[1].imshow(image_gray, cmap="gray")
-    axes[1].set_title("Grayscale (128x128)")
+    axes[1].set_title(f"Normalized ({image_gray.shape[1]}x{image_gray.shape[0]})")
     axes[1].axis("off")
 
     axes[2].imshow(minmax_normalize(hog_image), cmap="gray")
@@ -71,7 +71,7 @@ def visualize_features(image_path: Path) -> Path:
     fig.tight_layout()
 
     output_path = FIGURES_DIR / f"features_{image_path.stem}.png"
-    fig.savefig(output_path, dpi=200, bbox_inches="tight")
+    fig.savefig(str(output_path), dpi=200, bbox_inches="tight")
     plt.close(fig)
 
     print(f"Saved visualization: {output_path}")

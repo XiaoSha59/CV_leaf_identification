@@ -1,0 +1,11 @@
+{
+  "feature_set": "lbp",
+  "feature_dimension": 10,
+  "best_validation_result": {
+    "C": 100,
+    "gamma": 0.01,
+    "val_accuracy": 0.8804347826086957,
+    "val_macro_f1": 0.8765213372798512,
+    "train_seconds": 0.00853400002233684
+  }
+}

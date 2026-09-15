@@ -1,0 +1,11 @@
+{
+  "feature_set": "hog_lbp",
+  "feature_dimension": 8110,
+  "best_validation_result": {
+    "C": 1,
+    "gamma": "scale",
+    "val_accuracy": 0.8586956521739131,
+    "val_macro_f1": 0.8591473498981239,
+    "train_seconds": 0.8471777000231668
+  }
+}

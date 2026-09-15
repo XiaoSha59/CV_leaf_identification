@@ -1,0 +1,16 @@
+                        precision    recall  f1-score   support
+
+      pubescent_bamboo     1.0000    1.0000    1.0000         9
+chinese_horse_chestnut     0.7500    0.9000    0.8182        10
+        anhui_barberry     0.8750    0.7000    0.7778        10
+        chinese_redbud     1.0000    1.0000    1.0000        11
+           true_indigo     0.8333    0.9091    0.8696        11
+        japanese_maple     1.0000    1.0000    1.0000         8
+                 nanmu     0.8889    0.8000    0.8421        10
+         castor_aralia     1.0000    1.0000    1.0000         7
+      chinese_cinnamon     0.7778    0.8750    0.8235         8
+       goldenrain_tree     1.0000    0.8889    0.9412         9
+
+              accuracy                         0.9032        93
+             macro avg     0.9125    0.9073    0.9072        93
+          weighted avg     0.9089    0.9032    0.9033        93
