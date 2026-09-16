@@ -47,8 +47,14 @@ def load_split(split_name: str) -> pd.DataFrame:
             f"{sorted(missing_columns)}"
         )
 
-    if dataframe.empty:
-        raise ValueError(f"{split_path.name} is empty.")
+    # Ensure image_path points to existing raw data location if machine path changed
+    if not dataframe.empty and "filename" in dataframe.columns:
+        from src.config import RAW_DATA_DIR
+        sample_path = Path(dataframe.iloc[0]["image_path"])
+        if not sample_path.exists():
+            dataframe["image_path"] = dataframe["filename"].apply(
+                lambda fn: str(RAW_DATA_DIR / fn)
+            )
 
     return dataframe
 

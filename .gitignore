@@ -1,13 +1,46 @@
-# Virtual environment & Python
+# ==========================================
+# Python & Environment
+# ==========================================
 .venv/
+venv/
+env/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .ipynb_checkpoints/
 *.DS_Store
+Thumbs.db
 
-# Raw Dataset Images (ignore images, keep folders via .gitkeep)
+# ==========================================
+# Scratch & Temporary Scripts
+# ==========================================
+scratch/
+**/scratch/
+tmp/
+**/tmp/
+
+# ==========================================
+# Reports & LaTeX Documents (DO NOT PUSH)
+# ==========================================
+report/
+reports/
+**/report/
+**/reports/
+*.aux
+*.bbl
+*.blg
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+missfont.log
+
+# ==========================================
+# Raw Dataset Images
+# ==========================================
 **/data/raw/**/*.jpg
 **/data/raw/**/*.jpeg
 **/data/raw/**/*.png
@@ -18,22 +51,52 @@ __pycache__/
 **/data/raw/*.jpeg
 **/data/raw/*.png
 
-# Splits & processed features/data
+# ==========================================
+# Generated Metadata, Splits & CSVs
+# ==========================================
+**/data/*.csv
+**/data/**/*.csv
 **/data/splits/*.csv
 **/data/splits/*.npy
 **/data/splits/*.npz
+**/data/experiment_10_classes/
 
+# ==========================================
 # Trained Models & Weights
+# ==========================================
+**/models/**/*.pkl
+**/models/**/*.joblib
 **/models/*.pkl
 **/models/*.joblib
+**/models/experiment_10_classes/
 
-# Generated Results
-**/results/figures/*.png
-**/results/figures/*.jpg
-**/results/figures/*.pdf
-**/results/metrics/*.json
-**/results/metrics/*.csv
-**/results/predictions/*.csv
+# ==========================================
+# Generated Results & Artifacts
+# ==========================================
+**/results/figures/*
+**/results/metrics/*
+**/results/predictions/*
+**/results/experiment_10_classes/
+**/results/**/*.png
+**/results/**/*.jpg
+**/results/**/*.pdf
+**/results/**/*.json
+**/results/**/*.csv
+**/results/**/*.txt
 
-# Cloned reference repos
-references/Plant-Leaf-Identification/
+# ==========================================
+# Keep Directory Structures
+# ==========================================
+!**/data/raw/Flavia/.gitkeep
+!**/data/splits/.gitkeep
+!**/models/.gitkeep
+!**/results/figures/.gitkeep
+!**/results/metrics/.gitkeep
+!**/results/predictions/.gitkeep
+!**/demo/.gitkeep
+
+# ==========================================
+# References
+# ==========================================
+references/
+**/references/

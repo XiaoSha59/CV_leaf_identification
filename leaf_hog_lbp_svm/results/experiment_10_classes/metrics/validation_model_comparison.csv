@@ -1,4 +1,0 @@
-feature_set,model,feature_dimension,C,gamma,validation_accuracy,validation_macro_f1,train_seconds
-hog,HOG + SVM,8100,1,scale,0.858696,0.859147,0.855064
-lbp,Uniform LBP + SVM,10,100,0.01,0.880435,0.876521,0.008534
-hog_lbp,HOG + LBP + SVM,8110,1,scale,0.858696,0.859147,0.847178

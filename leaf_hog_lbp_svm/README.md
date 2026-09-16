@@ -1,13 +1,15 @@
 # Leaf Classification with HOG, LBP, and SVM
 
-Traditional computer vision pipeline for classifying leaf images from a 10-class subset of the Flavia dataset.
+Traditional computer vision pipeline for classifying plant leaf images across 32 species using the Flavia dataset.
 
 ## Features
 
-- HOG feature extraction
-- Uniform LBP histogram extraction
-- RBF-SVM classification
-- Validation comparison: HOG, LBP, and HOG + LBP
+- Otsu segmentation, moment-based vertical alignment, and centroid centering
+- HOG (Histogram of Oriented Gradients) feature extraction
+- Uniform LBP (Local Binary Patterns) histogram extraction
+- Feature fusion (HOG + LBP) with RBF-SVM classification
+- Hyperparameter tuning and model comparison across feature sets
+- Interactive CLI and Jupyter Notebook inference demos
 
 ## Requirements
 
@@ -48,12 +50,19 @@ data/raw/Flavia/
 
 ## Usage
 
-Run all commands from the repository root.
+Run all commands from the `leaf_hog_lbp_svm` directory.
 
+### 1. Label Generation & Data Splitting
 ```powershell
-# Generate labels and train/validation/test splits
-python -m src.make_labels
+# Option A: Full 32-class dataset (default)
+python -m src.make_labels --num-classes 32
+
+# Option B: 10-class baseline experiment
+python -m src.make_labels --num-classes 10
+
+# Perform stratified 70/15/15 train/val/test splitting
 python -m src.split_data
+```
 
 # Visualize HOG and LBP features for one image
 python -m src.visualize --image data/raw/Flavia/1001.jpg
