@@ -258,6 +258,61 @@ def save_metrics(
   print(f"Saved classification report: {report_path}")
 
 
+def save_final_test_summary_card(
+    feature_set: str,
+    test_accuracy: float,
+    test_macro_f1: float,
+    n_train_val: int,
+    n_test: int,
+    num_classes: int,
+) -> Path:
+  """Save a presentation-ready graphic summary card of held-out test evaluation."""
+  FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+
+  feature_label_map = {
+      "hog": "HOG + RBF-SVM",
+      "lbp": "Uniform LBP + RBF-SVM",
+      "uniform_lbp": "Uniform LBP + RBF-SVM",
+      "hog_lbp": "HOG + Uniform LBP + RBF-SVM",
+  }
+  model_name = feature_label_map.get(feature_set, feature_set)
+
+  fig, ax = plt.subplots(figsize=(8, 4.5), facecolor="#1e1e2e")
+  ax.set_facecolor("#1e1e2e")
+  ax.axis("off")
+
+  card_text = (
+      "FINAL HELD-OUT TEST EVALUATION\n"
+      "─────────────────────────────────────────────\n"
+      f"Selected Model   : {model_name}\n"
+      "Selection Source : Validation Macro F1\n"
+      f"Refit Data       : Train + Validation ({n_train_val} samples)\n"
+      f"Test Set         : {n_test} samples ({num_classes} classes)\n"
+      "─────────────────────────────────────────────\n"
+      f"Test Accuracy    : {test_accuracy * 100.0:.2f}%\n"
+      f"Test Macro F1    : {test_macro_f1 * 100.0:.2f}%\n"
+      "─────────────────────────────────────────────"
+  )
+
+  ax.text(
+      0.08,
+      0.88,
+      card_text,
+      fontsize=13,
+      fontfamily="monospace",
+      color="#cdd6f4",
+      va="top",
+      ha="left",
+      linespacing=1.6,
+  )
+
+  output_path = FIGURES_DIR / "final_test_summary.png"
+  fig.savefig(str(output_path), dpi=200, bbox_inches="tight", facecolor=fig.get_facecolor())
+  plt.close(fig)
+  print(f"Saved final test summary card: {output_path}")
+  return output_path
+
+
 def main() -> None:
   """Fit final SVM on Train+Val and evaluate on Test set."""
   parser = argparse.ArgumentParser(
@@ -265,14 +320,22 @@ def main() -> None:
   )
   parser.add_argument(
       "--feature-set",
+      "--final-model",
       type=str,
       default="hog_lbp",
-      choices=["hog", "lbp", "hog_lbp"],
-      help="Feature set to evaluate (default: hog_lbp)",
+      dest="feature_set",
+      choices=["hog", "lbp", "uniform_lbp", "hog_lbp"],
+      help="Feature set or final model to evaluate (default: hog_lbp)",
+  )
+  parser.add_argument(
+      "--seed",
+      type=int,
+      default=42,
+      help="Random seed (optional).",
   )
   args = parser.parse_args()
 
-  feature_set = args.feature_set
+  feature_set = "lbp" if args.feature_set == "uniform_lbp" else args.feature_set
 
   val_metrics_path = METRICS_DIR / f"{feature_set}_validation_metrics.json"
   if val_metrics_path.exists():
@@ -300,7 +363,7 @@ def main() -> None:
 
   train_val_dataframe = (
       pd.concat([train_dataframe, val_dataframe], ignore_index=True)
-      .sample(frac=1.0, random_state=RANDOM_STATE)
+      .sample(frac=1.0, random_state=args.seed)
       .reset_index(drop=True)
   )
 
@@ -390,6 +453,15 @@ def main() -> None:
       n_train_val=len(train_val_dataframe),
       n_test=len(test_dataframe),
       feature_set=feature_set,
+  )
+
+  save_final_test_summary_card(
+      feature_set=feature_set,
+      test_accuracy=test_accuracy,
+      test_macro_f1=test_macro_f1,
+      n_train_val=len(train_val_dataframe),
+      n_test=len(test_dataframe),
+      num_classes=len(class_names),
   )
 
 

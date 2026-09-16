@@ -13,12 +13,14 @@ __pycache__/
 Thumbs.db
 
 # ==========================================
-# Scratch & Temporary Scripts
+# Scratch & Temporary Scripts & Private Guides
 # ==========================================
 scratch/
 **/scratch/
 tmp/
 **/tmp/
+DEMO_GUIDE.md
+**/DEMO_GUIDE.md
 
 # ==========================================
 # Reports & LaTeX Documents (DO NOT PUSH)
