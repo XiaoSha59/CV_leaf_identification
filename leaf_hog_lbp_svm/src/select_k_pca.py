@@ -78,10 +78,13 @@ def sweep_pca_k(
 
         start_t = perf_counter()
 
-        # 1. Fit PCA on train HOG and project both train & val
-        pca = PCA(n_components=k, random_state=RANDOM_STATE)
-        X_hog_tr_pca = pca.fit_transform(X_hog_train)
-        X_hog_va_pca = pca.transform(X_hog_val)
+        # 1. Fit StandardScaler + PCA on train HOG and project both train & val
+        hog_pca_pipe = Pipeline([
+            ("scaler", StandardScaler()),
+            ("pca", PCA(n_components=k, random_state=RANDOM_STATE)),
+        ])
+        X_hog_tr_pca = hog_pca_pipe.fit_transform(X_hog_train)
+        X_hog_va_pca = hog_pca_pipe.transform(X_hog_val)
 
         # 2. Concatenate with LBP (59D)
         X_tr_fused = np.hstack([X_hog_tr_pca, X_lbp_train])
