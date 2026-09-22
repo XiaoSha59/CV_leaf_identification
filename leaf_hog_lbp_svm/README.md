@@ -1,94 +1,48 @@
 # Leaf Classification with HOG, LBP, and SVM
 
-Traditional computer vision pipeline for classifying plant leaf images across 32 species using the Flavia dataset.
+This package implements an end-to-end Computer Vision pipeline for plant leaf species recognition on the **Flavia Dataset** (32 classes, 1,907 images).
 
-## Features
+---
 
-- Otsu segmentation, moment-based vertical alignment, and centroid centering
-- HOG (Histogram of Oriented Gradients) feature extraction
-- Uniform LBP (Local Binary Patterns) histogram extraction
-- Feature fusion (HOG + LBP) with RBF-SVM classification
-- Hyperparameter tuning and model comparison across feature sets
-- Interactive CLI and Jupyter Notebook inference demos
+## 📊 Performance Summary
 
-## Requirements
+| Feature Configuration | Dimensions | Test Accuracy | Macro F1 |
+| :--- | :---: | :---: | :---: |
+| **LBP** (NRI-Uniform) | 59 | 93.38% | 0.9348 |
+| **HOG** (Cell-based) | 1,728 | 93.73% | 0.9389 |
+| **HOG + LBP Combined** | **1,787** | **96.17%** | **0.9622** |
 
-- Python 3.10+
-- Dependencies listed in `requirements.txt`
+---
 
-## Setup
+## 🚀 Execution Workflow
 
-Create and activate a virtual environment.
-
-Windows PowerShell:
+Run all commands from the `leaf_hog_lbp_svm` directory:
 
 ```powershell
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-
-pip install -r requirements.txt
-```
-
-## Dataset
-
-Download the Flavia Leaf Image Dataset from the [official project page](https://flavia.sourceforge.net/).
-
-Extract the image files into:
-
-```text
-data/raw/Flavia/
-```
-
-Expected structure:
-
-```text
-data/raw/Flavia/
-├── 1001.jpg
-├── 1002.jpg
-└── ...
-```
-
-## Usage
-
-Run all commands from the `leaf_hog_lbp_svm` directory.
-
-### 1. Label Generation & Data Splitting
-```powershell
-# Option A: Full 32-class dataset (default)
+# 1. Generate dataset metadata (32 classes)
 python -m src.make_labels --num-classes 32
 
-# Option B: 10-class baseline experiment
-python -m src.make_labels --num-classes 10
-
-# Perform stratified 70/15/15 train/val/test splitting
+# 2. Generate stratified splits (70% train, 15% val, 15% test)
 python -m src.split_data
-```
 
-# Visualize HOG and LBP features for one image
-python -m src.visualize --image data/raw/Flavia/1001.jpg
-
-# Train feature configurations
+# 3. Train models with hyperparameter validation
 python -m src.train --feature-set hog
 python -m src.train --feature-set lbp
 python -m src.train --feature-set hog_lbp
 
-# Compare validation results
-python -m src.compare_models
-
-# Refit the selected model and evaluate on the test split
-python -m src.evaluate
-
-# Run prediction demo
-python -m src.demo --image data/raw/Flavia/1001.jpg
+# 4. Evaluate final refit model on test set
+python -m src.evaluate --feature-set hog_lbp
 ```
 
-## Project Structure
+---
 
-```text
-.
-├── data/           # Dataset metadata and splits
-├── models/         # Trained model artifacts
-├── results/        # Metrics, figures, and predictions
-├── src/            # Source code
-└── requirements.txt
-```
+## 📁 Source Modules
+
+* `src/config.py`: Central parameters (image size 100x134, HOG cell 8x8, LBP 59-bins, class definitions).
+* `src/preprocess.py`: Otsu thresholding, principal moment alignment, centroid cropping, and normalization.
+* `src/features.py`: HOG (1,728D) and Non-rotation-invariant Uniform LBP (59D) extractors.
+* `src/data_loader.py`: Dataset batching and verification routines.
+* `src/make_labels.py`: Range-based dataset labeling.
+* `src/split_data.py`: Stratified Train/Val/Test partitioning.
+* `src/train.py`: Grid search tuning on validation data.
+* `src/evaluate.py`: Final model refitting and test evaluation with confusion matrix.

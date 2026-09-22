@@ -23,7 +23,7 @@ DEMO_GUIDE.md
 **/DEMO_GUIDE.md
 
 # ==========================================
-# Reports & LaTeX Documents (DO NOT PUSH)
+# Reports & Documents (DO NOT PUSH)
 # ==========================================
 report/
 reports/
@@ -95,7 +95,16 @@ missfont.log
 !**/results/figures/.gitkeep
 !**/results/metrics/.gitkeep
 !**/results/predictions/.gitkeep
-!**/demo/.gitkeep
+
+# ==========================================
+# Demo, Visualization & Local Tools (DO NOT PUSH)
+# ==========================================
+demo/
+**/demo/
+*.ipynb
+**/src/demo.py
+**/src/visualize.py
+**/src/compare_models.py
 
 # ==========================================
 # References
