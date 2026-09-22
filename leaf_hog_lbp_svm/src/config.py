@@ -1,9 +1,10 @@
 from pathlib import Path
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
 RAW_DATA_DIR = DATA_DIR / "raw" / "Flavia"
 RESULTS_DIR = PROJECT_ROOT / "results"
-MODELS_DIR = PROJECT_ROOT/ "models"
+MODELS_DIR = PROJECT_ROOT / "models"
 FIGURES_DIR = RESULTS_DIR / "figures"
 METRICS_DIR = RESULTS_DIR / "metrics"
 PREDICTIONS_DIR = RESULTS_DIR / "predictions"
@@ -15,18 +16,23 @@ TEST_SPLIT_PATH = DATA_DIR / "test.csv"
 
 IMAGE_SIZE = (100, 134)
 
+# Dalal & Triggs (CVPR 2005) Original HOG: 2x2 overlapping blocks (5,940 dimensions)
 HOG_PARAMS = {
     "orientations": 9,
     "pixels_per_cell": (8, 8),
-    "cells_per_block": (1, 1),
+    "cells_per_block": (2, 2),
     "block_norm": "L2",
 }
 
+# Ojala et al. (TPAMI 2002) Non-rotation-invariant Uniform LBP (59 dimensions)
 LBP_PARAMS = {
     "radius": 1,
     "n_points": 8,
     "method": "nri_uniform",
 }
+
+# Optimal PCA dimension for HOG 2x2 reduction
+PCA_HOG_COMPONENTS = 64
 
 RANDOM_STATE = 42
 

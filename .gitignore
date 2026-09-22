@@ -17,10 +17,13 @@ Thumbs.db
 # ==========================================
 scratch/
 **/scratch/
+experiments/
+**/experiments/
 tmp/
 **/tmp/
 DEMO_GUIDE.md
 **/DEMO_GUIDE.md
+
 
 # ==========================================
 # Reports & LaTeX Documents (DO NOT PUSH)

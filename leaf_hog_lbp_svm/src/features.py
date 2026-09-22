@@ -3,15 +3,16 @@ from skimage.feature import hog, local_binary_pattern
 
 from src.config import HOG_PARAMS, LBP_PARAMS
 
+
 def extract_hog(image_gray: np.ndarray) -> np.ndarray:
-    """Extract a HOG feature vector from a grayscale image"""
+    """Extract a HOG feature vector from a grayscale image."""
     features = hog(
         image_gray,
         **HOG_PARAMS,
-        feature_vector = True,
+        feature_vector=True,
     )
-
     return features.astype(np.float32)
+
 
 def extract_hog_with_visualization(
     image_gray: np.ndarray,
@@ -20,11 +21,11 @@ def extract_hog_with_visualization(
     features, hog_image = hog(
         image_gray,
         **HOG_PARAMS,
-        feature_vector = True, 
-        visualize = True,
+        feature_vector=True,
+        visualize=True,
     )
-
     return features.astype(np.float32), hog_image.astype(np.float32)
+
 
 def extract_lbp_map(image_gray: np.ndarray) -> np.ndarray:
     """Compute a uniform LBP code map from a grayscale uint8 image."""
@@ -66,9 +67,9 @@ def extract_features(gray: np.ndarray, feature_set: str) -> np.ndarray:
     if feature_set == "lbp":
         return extract_lbp_histogram(gray)
 
-    if feature_set == "hog_lbp":
+    if feature_set in ("hog_lbp", "hog_pca_lbp"):
         return np.concatenate(
             [extract_hog(gray), extract_lbp_histogram(gray)]
         ).astype(np.float32)
 
-    raise ValueError("feature_set must be one of: hog, lbp, hog_lbp")
+    raise ValueError("feature_set must be one of: hog, lbp, hog_lbp, hog_pca_lbp")

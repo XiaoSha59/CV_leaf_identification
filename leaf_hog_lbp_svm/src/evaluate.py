@@ -25,6 +25,7 @@ from src.config import (
     FIGURES_DIR,
     METRICS_DIR,
     MODELS_DIR,
+    PCA_HOG_COMPONENTS,
     PREDICTIONS_DIR,
     RANDOM_STATE,
 )
@@ -33,7 +34,9 @@ from src.data_loader import (
     load_split,
     verify_image_paths,
 )
-from src.features import extract_features
+from src.features import extract_features, extract_hog, extract_lbp_histogram
+from src.fusion import fuse_hog_pca_lbp
+from src.pca_reduction import fit_pca, save_pca
 from src.preprocess import preprocess_image
 
 
@@ -50,7 +53,7 @@ def build_feature_matrix(
     feature_vector = extract_features(image_gray, feature_set)
     feature_vectors.append(feature_vector)
 
-    if position % 50 == 0 or position == total_samples:
+    if position % 100 == 0 or position == total_samples:
       print(
           f"Extracted {position}/{total_samples} "
           f"{feature_set} feature vectors."
@@ -60,6 +63,29 @@ def build_feature_matrix(
   y = dataframe["label"].to_numpy(dtype=np.int64)
 
   return X, y
+
+
+def build_raw_representations(
+    dataframe: pd.DataFrame,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+  """Extract separate raw HOG and LBP matrices for PCA fusion pipeline."""
+  hog_vectors = []
+  lbp_vectors = []
+  total_samples = len(dataframe)
+
+  for position, (_, row) in enumerate(dataframe.iterrows(), start=1):
+    _, image_gray = preprocess_image(row["image_path"])
+    hog_vectors.append(extract_hog(image_gray))
+    lbp_vectors.append(extract_lbp_histogram(image_gray))
+
+    if position % 100 == 0 or position == total_samples:
+      print(f"Extracted {position}/{total_samples} HOG+LBP raw feature vectors.")
+
+  X_hog = np.vstack(hog_vectors)
+  X_lbp = np.vstack(lbp_vectors)
+  y = dataframe["label"].to_numpy(dtype=np.int64)
+
+  return X_hog, X_lbp, y
 
 
 def create_final_model(C: float, gamma: str | float) -> Pipeline:
@@ -86,47 +112,44 @@ def save_confusion_matrix(
     y_pred: np.ndarray,
     class_names: list[str],
     feature_set: str,
-) -> None:
-  """Save normalized test confusion matrix heatmap figure."""
+) -> Path:
+  """Generate and save the normalized confusion matrix heatmap."""
   FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-
   matrix = confusion_matrix(
       y_true,
       y_pred,
       labels=np.arange(len(class_names)),
-      normalize="true",
   )
 
-  num_classes = len(class_names)
-  fig_size = (16, 14) if num_classes > 15 else (11, 9)
-  fig, axis = plt.subplots(figsize=fig_size)
-
+  fig, ax = plt.subplots(figsize=(18, 15))
   sns.heatmap(
       matrix,
-      annot=num_classes <= 32,
-      fmt=".2f",
-      cmap="Blues",
+      annot=True,
+      fmt="d",
+      cmap="Greens",
       xticklabels=class_names,
       yticklabels=class_names,
-      annot_kws={"size": 7 if num_classes > 15 else 9},
-      cbar_kws={"label": "Recall per true class"},
-      ax=axis,
+      cbar_kws={"label": "Sample Count"},
+      ax=ax,
   )
 
-  axis.set_xlabel("Predicted class")
-  axis.set_ylabel("True class")
-  axis.set_title(
-      f"Normalized Confusion Matrix: Final {feature_set.upper()} + RBF-SVM"
+  ax.set_title(
+      f"Confusion Matrix: {feature_set.upper()} (Test Set)",
+      fontsize=16,
+      fontweight="bold",
+      pad=15,
   )
-  plt.xticks(rotation=45, ha="right", fontsize=8 if num_classes > 15 else 10)
-  plt.yticks(rotation=0, fontsize=8 if num_classes > 15 else 10)
+  ax.set_xlabel("Predicted Label", fontsize=12, labelpad=10)
+  ax.set_ylabel("True Label", fontsize=12, labelpad=10)
+  plt.xticks(rotation=45, ha="right", fontsize=9)
+  plt.yticks(rotation=0, fontsize=9)
 
   fig.tight_layout()
-  output_path = FIGURES_DIR / f"confusion_matrix_final_{feature_set}.png"
+  output_path = FIGURES_DIR / f"{feature_set}_test_confusion_matrix.png"
   fig.savefig(str(output_path), dpi=200, bbox_inches="tight")
   plt.close(fig)
-
   print(f"Saved confusion matrix: {output_path}")
+  return output_path
 
 
 def save_error_cases(
@@ -136,59 +159,76 @@ def save_error_cases(
     probabilities: np.ndarray,
     class_names: list[str],
     feature_set: str,
-    max_examples: int = 9,
-) -> None:
-  """Save a visual grid of misclassified test images with file names and confidence."""
-  error_indices = np.flatnonzero(y_true != y_pred)
+    max_cases: int = 12,
+) -> Path | None:
+  """Visualize incorrectly predicted leaf images alongside top-3 predictions."""
+  FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+  error_mask = y_true != y_pred
+  error_indices = np.where(error_mask)[0]
 
   if len(error_indices) == 0:
-    print("No misclassified test images; error case figure was not created.")
-    return
+    print("Zero error cases detected on the test set. Skipping error gallery.")
+    return None
 
-  FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-  selected_indices = error_indices[:max_examples]
-  n_samples = len(selected_indices)
+  total_errors = len(error_indices)
+  display_count = min(total_errors, max_cases)
+  selected_indices = error_indices[:display_count]
 
-  cols = 3
-  rows = int(np.ceil(n_samples / cols))
-  fig, axes = plt.subplots(rows, cols, figsize=(cols * 4, rows * 4))
-  axes = np.atleast_1d(axes).flatten()
+  cols = 4
+  rows = int(np.ceil(display_count / cols))
+  fig, axes = plt.subplots(rows, cols, figsize=(18, 4.5 * rows))
+  axes = np.array(axes).flatten()
 
-  for plot_idx, error_idx in enumerate(selected_indices):
-    image_path = Path(test_dataframe.iloc[error_idx]["image_path"])
-    true_label = y_true[error_idx]
-    pred_label = y_pred[error_idx]
+  for plot_index, error_idx in enumerate(selected_indices):
+    ax = axes[plot_index]
+    row = test_dataframe.iloc[error_idx]
 
-    true_name = class_names[true_label]
-    pred_name = class_names[pred_label]
-    confidence = probabilities[error_idx, pred_label] * 100.0
+    image_bgr, _ = preprocess_image(row["image_path"])
+    image_rgb = cv2_bgr_to_rgb(image_bgr)
 
-    image_rgb = plt.imread(str(image_path))
+    true_name = class_names[y_true[error_idx]]
+    pred_name = class_names[y_pred[error_idx]]
 
-    axes[plot_idx].imshow(image_rgb)
-    axes[plot_idx].set_title(
-        f"File: {image_path.name}\n"
+    probs = probabilities[error_idx]
+    top3_indices = np.argsort(probs)[::-1][:3]
+    top3_text = "\n".join(
+        [f"{class_names[idx]}: {probs[idx]:.2f}" for idx in top3_indices]
+    )
+
+    ax.imshow(image_rgb)
+    ax.set_title(
+        f"File: {Path(row['image_path']).name}\n"
         f"True: {true_name}\n"
-        f"Pred: {pred_name} ({confidence:.1f}%)",
+        f"Pred: {pred_name}\n"
+        f"Top 3:\n{top3_text}",
         fontsize=9,
         color="darkred",
+        fontweight="bold",
     )
-    axes[plot_idx].axis("off")
+    ax.axis("off")
 
-  for unused_idx in range(n_samples, len(axes)):
-    axes[unused_idx].axis("off")
+  for unused_index in range(display_count, len(axes)):
+    fig.delaxes(axes[unused_index])
 
   fig.suptitle(
-      f"Misclassified Test Samples ({feature_set.upper()} + RBF-SVM)",
-      fontsize=14,
+      f"Misclassified Test Samples - {feature_set.upper()} ({total_errors} errors total)",
+      fontsize=16,
+      fontweight="bold",
+      y=0.99,
   )
   fig.tight_layout()
 
-  output_path = FIGURES_DIR / f"error_cases_final_{feature_set}.png"
+  output_path = FIGURES_DIR / f"{feature_set}_error_cases.png"
   fig.savefig(str(output_path), dpi=200, bbox_inches="tight")
   plt.close(fig)
-
   print(f"Saved error cases figure: {output_path}")
+  return output_path
+
+
+def cv2_bgr_to_rgb(image_bgr: np.ndarray) -> np.ndarray:
+  """Convert OpenCV BGR image array to RGB for matplotlib."""
+  import cv2
+  return cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
 
 
 def save_prediction_tables(
@@ -197,30 +237,36 @@ def save_prediction_tables(
     y_pred: np.ndarray,
     probabilities: np.ndarray,
     class_names: list[str],
-) -> None:
-  """Export comprehensive test predictions and misclassified samples CSV files."""
+) -> tuple[Path, Path]:
+  """Save CSV files containing predictions and per-class performance metrics."""
   PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
 
-  predicted_names = [class_names[pred] for pred in y_pred]
-  confidence_scores = np.max(probabilities, axis=1)
+  preds_df = test_dataframe.copy()
+  preds_df["true_class"] = [class_names[label] for label in y_true]
+  preds_df["predicted_class"] = [class_names[label] for label in y_pred]
+  preds_df["correct"] = y_true == y_pred
+  preds_df["confidence"] = np.max(probabilities, axis=1)
 
-  predictions_df = test_dataframe.copy()
-  predictions_df["predicted_label"] = y_pred
-  predictions_df["predicted_class"] = predicted_names
-  predictions_df["confidence"] = confidence_scores
-  predictions_df["is_correct"] = y_true == y_pred
+  detailed_path = PREDICTIONS_DIR / "test_predictions_detailed.csv"
+  preds_df.to_csv(detailed_path, index=False)
 
-  all_preds_path = PREDICTIONS_DIR / "test_predictions.csv"
-  predictions_df.to_csv(all_preds_path, index=False)
-  print(f"Saved all predictions: {all_preds_path}")
-
-  misclassified_df = predictions_df[~predictions_df["is_correct"]].copy()
-  misclassified_path = PREDICTIONS_DIR / "misclassified_test_samples.csv"
-  misclassified_df.to_csv(misclassified_path, index=False)
-  print(
-      f"Saved misclassified samples table ({len(misclassified_df)} errors):"
-      f" {misclassified_path}"
+  report_dict = classification_report(
+      y_true,
+      y_pred,
+      labels=np.arange(len(class_names)),
+      target_names=class_names,
+      output_dict=True,
+      zero_division=0,
   )
+  class_report_df = pd.DataFrame(report_dict).transpose().reset_index()
+  class_report_df.rename(columns={"index": "class_or_metric"}, inplace=True)
+
+  summary_path = PREDICTIONS_DIR / "per_class_performance.csv"
+  class_report_df.to_csv(summary_path, index=False)
+
+  print(f"Saved predictions table: {detailed_path}")
+  print(f"Saved per-class performance summary: {summary_path}")
+  return detailed_path, summary_path
 
 
 def save_metrics(
@@ -232,88 +278,27 @@ def save_metrics(
     n_train_val: int,
     n_test: int,
     feature_set: str,
-) -> None:
-  """Persist test evaluation metrics to JSON and text summary files."""
+) -> Path:
+  """Persist final evaluation metrics as a structured JSON artifact."""
   METRICS_DIR.mkdir(parents=True, exist_ok=True)
+  metrics_path = METRICS_DIR / f"{feature_set}_test_metrics.json"
 
-  metrics = {
+  payload = {
       "feature_set": feature_set,
       "test_accuracy": float(test_accuracy),
       "test_macro_f1": float(test_macro_f1),
-      "train_seconds": float(train_seconds),
-      "feature_dimension": int(feature_dimension),
-      "n_train_val_samples": int(n_train_val),
-      "n_test_samples": int(n_test),
+      "feature_dimension": feature_dimension,
+      "train_val_samples": n_train_val,
+      "test_samples": n_test,
+      "train_time_seconds": float(train_seconds),
+      "classification_report": report_text,
   }
 
-  json_path = METRICS_DIR / f"final_test_metrics_{feature_set}.json"
-  with open(json_path, "w", encoding="utf-8") as f:
-    json.dump(metrics, f, indent=2)
+  with metrics_path.open("w", encoding="utf-8") as file:
+    json.dump(payload, file, indent=2)
 
-  with open(METRICS_DIR / "final_test_metrics.json", "w", encoding="utf-8") as f:
-    json.dump(metrics, f, indent=2)
-
-  print(f"Saved test metrics: {json_path}")
-
-  report_path = METRICS_DIR / "final_classification_report.txt"
-  with open(report_path, "w", encoding="utf-8") as f:
-    f.write(report_text)
-  print(f"Saved classification report: {report_path}")
-
-
-def save_final_test_summary_card(
-    feature_set: str,
-    test_accuracy: float,
-    test_macro_f1: float,
-    n_train_val: int,
-    n_test: int,
-    num_classes: int,
-) -> Path:
-  """Save a presentation-ready graphic summary card of held-out test evaluation."""
-  FIGURES_DIR.mkdir(parents=True, exist_ok=True)
-
-  feature_label_map = {
-      "hog": "HOG + RBF-SVM",
-      "lbp": "Uniform LBP + RBF-SVM",
-      "uniform_lbp": "Uniform LBP + RBF-SVM",
-      "hog_lbp": "HOG + Uniform LBP + RBF-SVM",
-  }
-  model_name = feature_label_map.get(feature_set, feature_set)
-
-  fig, ax = plt.subplots(figsize=(8, 4.5), facecolor="#1e1e2e")
-  ax.set_facecolor("#1e1e2e")
-  ax.axis("off")
-
-  card_text = (
-      "FINAL HELD-OUT TEST EVALUATION\n"
-      "─────────────────────────────────────────────\n"
-      f"Selected Model   : {model_name}\n"
-      "Selection Source : Validation Macro F1\n"
-      f"Refit Data       : Train + Validation ({n_train_val} samples)\n"
-      f"Test Set         : {n_test} samples ({num_classes} classes)\n"
-      "─────────────────────────────────────────────\n"
-      f"Test Accuracy    : {test_accuracy * 100.0:.2f}%\n"
-      f"Test Macro F1    : {test_macro_f1 * 100.0:.2f}%\n"
-      "─────────────────────────────────────────────"
-  )
-
-  ax.text(
-      0.08,
-      0.88,
-      card_text,
-      fontsize=13,
-      fontfamily="monospace",
-      color="#cdd6f4",
-      va="top",
-      ha="left",
-      linespacing=1.6,
-  )
-
-  output_path = FIGURES_DIR / "final_test_summary.png"
-  fig.savefig(str(output_path), dpi=200, bbox_inches="tight", facecolor=fig.get_facecolor())
-  plt.close(fig)
-  print(f"Saved final test summary card: {output_path}")
-  return output_path
+  print(f"Saved final test metrics: {metrics_path}")
+  return metrics_path
 
 
 def main() -> None:
@@ -325,10 +310,16 @@ def main() -> None:
       "--feature-set",
       "--final-model",
       type=str,
-      default="hog_lbp",
+      default="hog_pca_lbp",
       dest="feature_set",
-      choices=["hog", "lbp", "uniform_lbp", "hog_lbp"],
-      help="Feature set or final model to evaluate (default: hog_lbp)",
+      choices=["hog", "lbp", "uniform_lbp", "hog_lbp", "hog_pca_lbp"],
+      help="Feature set to evaluate (default: hog_pca_lbp)",
+  )
+  parser.add_argument(
+      "--pca-k",
+      type=int,
+      default=PCA_HOG_COMPONENTS,
+      help="Number of PCA components for HOG reduction (default: 64).",
   )
   parser.add_argument(
       "--seed",
@@ -377,10 +368,21 @@ def main() -> None:
   print(f"Train + validation samples: {len(train_val_dataframe)}")
   print(f"Test samples: {len(test_dataframe)}")
 
-  X_train_val, y_train_val = build_feature_matrix(
-      train_val_dataframe, feature_set
-  )
-  X_test, y_test = build_feature_matrix(test_dataframe, feature_set)
+  if feature_set == "hog_pca_lbp":
+    print("\n--- Extracting raw HOG and LBP representations ---")
+    X_hog_tv, X_lbp_tv, y_train_val = build_raw_representations(train_val_dataframe)
+    X_hog_te, X_lbp_te, y_test = build_raw_representations(test_dataframe)
+
+    print(f"\n--- Fitting PCA (k={args.pca_k}) on Train+Val HOG features ---")
+    pca_model = fit_pca(X_hog_tv, n_components=args.pca_k)
+    save_pca(pca_model, MODELS_DIR / f"final_hog_pca_{args.pca_k}.joblib")
+
+    print("--- Fusing PCA-reduced HOG + LBP ---")
+    X_train_val = fuse_hog_pca_lbp(X_hog_tv, X_lbp_tv, pca_model)
+    X_test = fuse_hog_pca_lbp(X_hog_te, X_lbp_te, pca_model)
+  else:
+    X_train_val, y_train_val = build_feature_matrix(train_val_dataframe, feature_set)
+    X_test, y_test = build_feature_matrix(test_dataframe, feature_set)
 
   print("\nFeature matrix shapes:")
   print(f"X_train_val: {X_train_val.shape}")
@@ -456,15 +458,6 @@ def main() -> None:
       n_train_val=len(train_val_dataframe),
       n_test=len(test_dataframe),
       feature_set=feature_set,
-  )
-
-  save_final_test_summary_card(
-      feature_set=feature_set,
-      test_accuracy=test_accuracy,
-      test_macro_f1=test_macro_f1,
-      n_train_val=len(train_val_dataframe),
-      n_test=len(test_dataframe),
-      num_classes=len(class_names),
   )
 
 
