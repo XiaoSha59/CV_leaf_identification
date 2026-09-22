@@ -14,7 +14,7 @@ Traditional computer vision pipeline for classifying plant leaf images across 32
                     ├── Grayscale Conversion & Normalization
                     ├── Otsu Thresholding & Background Removal
                     ├── Image Moments: Centering & Vertical Alignment
-                    └── Standard Square Canvas (256x256)
+                    └── Standard Fixed Canvas (100x134 px)
                                 │
                  ┌──────────────┴──────────────┐
                  ▼                             ▼
