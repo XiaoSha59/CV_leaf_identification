@@ -1,20 +1,6 @@
-# Plant Leaf Identification using HOG, LBP, and SVM
+# Plant Leaf Identification using Traditional Computer Vision & Machine Learning
 
-This repository implements an end-to-end Computer Vision and Machine Learning pipeline for plant leaf species identification on the **Flavia Dataset** (32 plant species, 1,907 images).
-
-The method integrates morphological preprocessing, gradient shape analysis via **Histogram of Oriented Gradients (HOG)**, surface texture encoding via **Local Binary Patterns (LBP)**, feature standardization, and an **RBF-Kernel Support Vector Machine (SVM)**.
-
----
-
-## 📊 Benchmark Results
-
-Evaluated on a held-out test split (15% stratified test set - 287 images) across all 32 plant species:
-
-| Feature Representation | Dimension | Test Accuracy | Macro F1-Score | Correct / Total |
-| :--- | :---: | :---: | :---: | :---: |
-| **LBP** (Non-rotation-invariant Uniform) | 59 | 93.38% | 0.9348 | 268 / 287 |
-| **HOG** (Cell-based Gradient) | 1,728 | 93.73% | 0.9389 | 269 / 287 |
-| **HOG + LBP Combined** | **1,787** | **96.17%** | **0.9622** | **276 / 287** |
+This repository implements a complete pipeline for plant leaf species recognition using classical Computer Vision feature descriptors (HOG, LBP) and Support Vector Machines (SVM) on the **Flavia Dataset** (32 plant species, 1,907 images).
 
 ---
 
@@ -25,55 +11,25 @@ CV_leaf_identification/
 └── leaf_hog_lbp_svm/
     ├── data/
     │   ├── raw/
-    │   │   └── Flavia/              # Raw images (1001.jpg - 3621.jpg)
-    │   └── splits/                  # Train/Val/Test split CSV files
-    ├── models/                      # Trained model artifacts (.joblib)
-    ├── results/
-    │   ├── figures/                 # Confusion matrices and plots
-    │   ├── metrics/                 # JSON evaluation reports
-    │   └── predictions/             # Prediction CSV outputs
-    ├── src/
+    │   │   └── Flavia/              # Raw image files (1001.jpg - 3621.jpg) [excluded from Git]
+    │   └── splits/                  # Generated train/val/test splits [generated at runtime]
+    ├── models/                      # Saved SVM models (*.joblib) [generated at runtime]
+    ├── results/                     # Figures, metrics, and prediction tables [generated at runtime]
+    │   ├── figures/                 # Confusion matrices, error cases, visualizations
+    │   ├── metrics/                 # JSON metrics and evaluation reports
+    │   └── predictions/             # Prediction CSVs and demo charts
+    ├── src/                         # Modular Python source code
     │   ├── __init__.py
-    │   ├── config.py                # Pipeline parameters and class definitions
+    │   ├── config.py                # Configuration and class mappings
+    │   ├── preprocess.py            # Otsu segmentation & moment-based alignment
+    │   ├── features.py              # HOG and Uniform LBP feature extraction
     │   ├── data_loader.py           # Dataset loaders and path verification
-    │   ├── make_labels.py           # Dataset indexing and label creation
-    │   ├── preprocess.py            # Otsu segmentation, vertical alignment & centering
-    │   ├── features.py              # HOG (1,728D) and LBP (59D) feature extractors
-    │   ├── split_data.py            # Stratified Train/Val/Test (70/15/15) split
-    │   ├── train.py                 # Hyperparameter tuning (Grid search on Val set)
-    │   └── evaluate.py              # Test set evaluation and confusion matrix generation
+    │   ├── make_labels.py           # Label extraction from filename ranges
+    │   ├── split_data.py            # Stratified Train/Val/Test splitting
+    │   ├── train.py                 # Hyperparameter tuning on validation set
+    │   └── evaluate.py              # Test set evaluation and confusion matrix
     ├── requirements.txt             # Python dependencies
-    └── README.md                    # Sub-package documentation
-```
-
----
-
-## ⚙️ Methodology & Pipeline Overview
-
-```
-[Raw Image] 
-    │
-    ▼
-[Morphological Preprocessing]
-  ├── 1. Otsu Thresholding (Background segmentation)
-  ├── 2. Central Moments Calculation
-  ├── 3. Principal Axis Vertical Rotation
-  ├── 4. Bounding Box Crop (center_leaf)
-  └── 5. Standardized Resize (100 × 134 px)
-    │
-    ▼
-[Feature Extraction]
-  ├── HOG: 9 orientations, 8×8 cell, 1×1 block -> 1,728 dimensions
-  └── LBP: NRI-Uniform (P=8, R=1, 59 bins)    -> 59 dimensions
-    │
-    ▼
-[Feature Fusion] -> 1,787 dimensions
-    │
-    ▼
-[StandardScaler] -> (Zero-mean, unit-variance normalization)
-    │
-    ▼
-[RBF-Kernel SVM] -> 32-Class Probability Prediction
+    └── README.md                    # Project-specific documentation
 ```
 
 ---
@@ -81,7 +37,6 @@ CV_leaf_identification/
 ## 🚀 Quick Start
 
 ### 1. Environment Setup
-
 ```powershell
 # Create and activate virtual environment
 py -m venv .venv
@@ -93,38 +48,22 @@ pip install -r requirements.txt
 ```
 
 ### 2. Dataset Preparation
-
-1. Download the **Flavia Leaf Image Dataset** from the [Flavia Official Page](https://flavia.sourceforge.net/).
-2. Extract all images (`1001.jpg` to `3621.jpg`) into `leaf_hog_lbp_svm/data/raw/Flavia/`.
+Download the **Flavia Leaf Image Dataset** from [Flavia Official Site](https://flavia.sourceforge.net/) and extract all images into `leaf_hog_lbp_svm/data/raw/Flavia/`.
 
 ### 3. Pipeline Execution
-
-Run all commands from the `leaf_hog_lbp_svm` directory:
-
 ```powershell
-# Step 1: Generate dataset labels (Full 32 classes)
+# Generate dataset metadata (32 classes by default, or use --num-classes 10 for baseline)
 python -m src.make_labels --num-classes 32
+# or: python -m src.make_labels --num-classes 10
 
-# Step 2: Create stratified 70/15/15 Train/Validation/Test splits
+# Perform stratified train/val/test splitting (70% / 15% / 15%)
 python -m src.split_data
 
-# Step 3: Train and tune hyperparameters for individual and combined features
+# Train and tune SVM on individual feature representations
 python -m src.train --feature-set hog
 python -m src.train --feature-set lbp
 python -m src.train --feature-set hog_lbp
 
-# Step 4: Evaluate the final model on the held-out test set
+# Evaluate the best model on the unseen test set
 python -m src.evaluate --feature-set hog_lbp
 ```
-
----
-
-## 📦 Requirements
-
-* Python 3.10+
-* `numpy`, `scipy`, `pandas`
-* `opencv-python`
-* `scikit-image`
-* `scikit-learn`
-* `matplotlib`, `seaborn`
-* `joblib`
