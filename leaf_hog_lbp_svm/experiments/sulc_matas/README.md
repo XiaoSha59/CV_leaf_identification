@@ -7,6 +7,53 @@ The method is evaluated on the **Flavia Dataset** (32 species, 1,907 images) und
 
 ---
 
+## 🏗️ Method & Pipeline Architecture
+
+```text
+                     [Input Leaf Image (RGB / Grayscale)]
+                                      │
+                                      ▼
+                        [1. Otsu Leaf Segmentation]
+                                      │
+                   ┌──────────────────┴──────────────────┐
+                   ▼                                     ▼
+        [Interior Mask: M_int]                [Border Mask: M_border]
+        (Erosion r=35px: Venation)            (Margin & Leaf Teeth)
+                   │                                     │
+                   ▼                                     ▼
+      [2. 8-Scale Gaussian Space]           [2. 8-Scale Gaussian Space]
+      ├── Radii R: 1 ... 11.314 px          ├── Radii R: 1 ... 11.314 px
+      └── Sigma = R / 2                     └── Sigma = R / 2
+                   │                                     │
+                   ▼                                     ▼
+      [3. Multi-Scale LBP-HF-S-M]           [3. Multi-Scale LBP-HF-S-M]
+      ├── CLBP-Sign (38D)                   ├── CLBP-Sign (38D)
+      ├── CLBP-Mag  (38D)                   ├── CLBP-Mag  (38D)
+      ├── 1D Discrete Fourier (76D/scale)   ├── 1D Discrete Fourier (76D/scale)
+      └── 6 Scales x 76D = 456D             └── 6 Scales x 76D = 456D
+          (3 Channels: 3 x 456D)                (3 Channels: 3 x 456D)
+                   │                                     │
+                   ▼                                     ▼
+      [4. Additive Chi-Square Map]          [4. Additive Chi-Square Map]
+                   │                                     │
+                   ▼                                     ▼
+      [5. Linear SVM + Platt Scaling]       [5. Linear SVM + Platt Scaling]
+                   │                                     │
+                   ▼                                     ▼
+          P(Class | Interior)                   P(Class | Border)
+                   │                                     │
+                   └──────────────────┬──────────────────┘
+                                      ▼
+                           [6. Late Decision Fusion]
+                                      ├── Sum Rule: P(int) + P(border)      --> 97.21%
+                                      └── Product Rule: P(int) x P(border)  --> 97.56%
+                                      │
+                                      ▼
+                       [Final 32-Species Classification]
+```
+
+---
+
 ## Method Overview
 
 The Sulc & Matas pipeline models leaf recognition through multi-scale rotation-invariant texture descriptors extracted from separate anatomical regions of the leaf:
