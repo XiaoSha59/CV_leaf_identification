@@ -97,11 +97,15 @@ missfont.log
 !**/results/predictions/.gitkeep
 
 # ==========================================
-# Demo & Notebooks (DO NOT PUSH)
+# Demo, Visualization & Local Tools (DO NOT PUSH)
 # ==========================================
 demo/
 **/demo/
 *.ipynb
+**/src/demo.py
+**/src/visualize.py
+**/src/compare_models.py
+
 
 
 # ==========================================
