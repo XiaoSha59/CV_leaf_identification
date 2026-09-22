@@ -23,6 +23,9 @@ CV_leaf_identification/
     │   ├── config.py                # Configuration and class mappings
     │   ├── preprocess.py            # Otsu segmentation & moment-based alignment
     │   ├── features.py              # HOG and Uniform LBP feature extraction
+    │   ├── pca_reduction.py         # PCA dimensionality reduction for HOG
+    │   ├── select_k_pca.py          # Optimal PCA dimension (k) sweep on validation set
+    │   ├── fusion.py                # Feature fusion (HOG PCA + LBP concatenation)
     │   ├── data_loader.py           # Dataset loaders and path verification
     │   ├── make_labels.py           # Label extraction from filename ranges
     │   ├── split_data.py            # Stratified Train/Val/Test splitting
@@ -59,11 +62,14 @@ python -m src.make_labels --num-classes 32
 # Perform stratified train/val/test splitting (70% / 15% / 15%)
 python -m src.split_data
 
-# Train and tune SVM on individual feature representations
+# (Optional) Find optimal PCA dimension k on validation set
+python -m src.select_k_pca
+
+# Train and tune SVM on feature representations (hog, lbp, hog_lbp, hog_pca_lbp)
 python -m src.train --feature-set hog
 python -m src.train --feature-set lbp
-python -m src.train --feature-set hog_lbp
+python -m src.train --feature-set hog_pca_lbp
 
 # Evaluate the best model on the unseen test set
-python -m src.evaluate --feature-set hog_lbp
+python -m src.evaluate --feature-set hog_pca_lbp
 ```

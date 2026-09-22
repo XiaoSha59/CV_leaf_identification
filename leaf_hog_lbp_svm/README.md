@@ -5,9 +5,10 @@ Traditional computer vision pipeline for classifying plant leaf images across 32
 ## Features
 
 - Otsu segmentation, moment-based vertical alignment, and centroid centering
-- HOG (Histogram of Oriented Gradients) feature extraction
-- Uniform LBP (Local Binary Patterns) histogram extraction
-- Feature fusion (HOG + LBP) with RBF-SVM classification
+- HOG (Histogram of Oriented Gradients) feature extraction with 2x2 blocks
+- Uniform LBP (Local Binary Patterns) histogram extraction (59D)
+- PCA dimensionality reduction for HOG feature optimization
+- Feature fusion (HOG PCA + LBP) with RBF-SVM classification
 - Hyperparameter tuning and model evaluation across feature sets
 
 ## Requirements
@@ -62,13 +63,16 @@ python -m src.make_labels --num-classes 10
 # Perform stratified 70/15/15 train/val/test splitting
 python -m src.split_data
 
+# Find optimal PCA dimension k
+python -m src.select_k_pca
+
 # Train feature configurations
 python -m src.train --feature-set hog
 python -m src.train --feature-set lbp
-python -m src.train --feature-set hog_lbp
+python -m src.train --feature-set hog_pca_lbp
 
 # Refit the selected model and evaluate on the test split
-python -m src.evaluate --feature-set hog_lbp
+python -m src.evaluate --feature-set hog_pca_lbp
 ```
 
 ## Project Structure
