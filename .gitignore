@@ -99,13 +99,12 @@ missfont.log
 !**/results/predictions/.gitkeep
 
 # ==========================================
-# Demo, Visualization & Local Tools (DO NOT PUSH)
+# Demo & Local Scratch Tools (DO NOT PUSH)
 # ==========================================
 demo/
 **/demo/
 *.ipynb
 **/src/demo.py
-**/src/visualize.py
 **/src/compare_models.py
 
 
