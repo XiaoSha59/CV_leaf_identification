@@ -95,7 +95,14 @@ missfont.log
 !**/results/figures/.gitkeep
 !**/results/metrics/.gitkeep
 !**/results/predictions/.gitkeep
-!**/demo/.gitkeep
+
+# ==========================================
+# Demo & Notebooks (DO NOT PUSH)
+# ==========================================
+demo/
+**/demo/
+*.ipynb
+
 
 # ==========================================
 # References
