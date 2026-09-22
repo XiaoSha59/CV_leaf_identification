@@ -40,16 +40,21 @@ def extract_lbp_map(image_gray: np.ndarray) -> np.ndarray:
 
 
 def extract_lbp_histogram(image_gray: np.ndarray) -> np.ndarray:
-    """Convert the uniform LBP map into a normalized histogram feature."""
+    """Convert the uniform LBP map into a normalized histogram feature (59 bins for nri_uniform)."""
     lbp_map = extract_lbp_map(image_gray)
 
-    n_bins = LBP_PARAMS["n_points"] + 2
+    p = LBP_PARAMS["n_points"]
+    if LBP_PARAMS["method"] == "nri_uniform":
+        n_bins = p * (p - 1) + 3  # 59 bins for P=8
+    else:
+        n_bins = p + 2
+
     histogram, _ = np.histogram(
-    lbp_map.ravel(),
-    bins=n_bins,
-    range=(0, n_bins),
-    density=True,
-)
+        lbp_map.ravel(),
+        bins=n_bins,
+        range=(0, n_bins),
+        density=True,
+    )
     return histogram.astype(np.float32)
 
 

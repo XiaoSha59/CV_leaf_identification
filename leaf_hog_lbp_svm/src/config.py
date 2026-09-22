@@ -18,14 +18,14 @@ IMAGE_SIZE = (100, 134)
 HOG_PARAMS = {
     "orientations": 9,
     "pixels_per_cell": (8, 8),
-    "cells_per_block": (2, 2),
-    "block_norm": "L2-Hys",
+    "cells_per_block": (1, 1),
+    "block_norm": "L2",
 }
 
 LBP_PARAMS = {
     "radius": 1,
     "n_points": 8,
-    "method": "uniform",
+    "method": "nri_uniform",
 }
 
 RANDOM_STATE = 42
