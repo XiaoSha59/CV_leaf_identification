@@ -2,6 +2,9 @@ import argparse
 import json
 from pathlib import Path
 from time import perf_counter
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 import joblib
 import matplotlib.pyplot as plt

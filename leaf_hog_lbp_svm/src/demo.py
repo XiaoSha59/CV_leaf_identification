@@ -1,5 +1,8 @@
 import argparse
 from pathlib import Path
+import warnings
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 import cv2
 import joblib
