@@ -17,7 +17,8 @@ Thumbs.db
 # ==========================================
 scratch/
 **/scratch/
-leaf_hog_lbp_svm/experiments/*.py
+experiments/
+**/experiments/
 tmp/
 **/tmp/
 DEMO_GUIDE.md
