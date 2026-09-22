@@ -6,28 +6,38 @@ Traditional computer vision pipeline for classifying plant leaf images across 32
 
 ## 🏗️ Method & Pipeline Architecture
 
-```mermaid
-flowchart TD
-    subgraph Preprocessing ["1. Preprocessing Pipeline"]
-        A["Input Leaf Image (RGB)"] --> B["Grayscale & Contrast Normalization"]
-        B --> C["Otsu Thresholding & Background Removal"]
-        C --> D["Image Moments: Centering & Vertical Alignment"]
-        D --> E["Normalized Standard Canvas (256x256)"]
-    end
-
-    subgraph FeatureExtraction ["2. Dual Feature Extraction"]
-        E --> F["HOG Descriptor (2x2 blocks, 8x8 cell, 9 bins) - 5,940D"]
-        E --> G["Uniform LBP (P=8, R=1, NRI-Uniform) - 59D"]
-        F --> H["StandardScaler -> PCA Compression (k=64)"]
-    end
-
-    subgraph FusionAndClassification ["3. Fusion & Classification"]
-        H --> I["Feature Concatenation (64D + 59D = 123D)"]
-        G --> I
-        I --> J["StandardScaler Normalization"]
-        J --> K["Support Vector Machine (RBF Kernel)"]
-        K --> L["Output: Plant Species Prediction (32 Classes, 97.56% Accuracy)"]
-    end
+```text
+                     [Input Leaf Image (RGB)]
+                                │
+                                ▼
+                    [1. Preprocessing Pipeline]
+                    ├── Grayscale Conversion & Normalization
+                    ├── Otsu Thresholding & Background Removal
+                    ├── Image Moments: Centering & Vertical Alignment
+                    └── Standard Square Canvas (256x256)
+                                │
+                 ┌──────────────┴──────────────┐
+                 ▼                             ▼
+   [2. HOG Feature Extraction]   [2. LBP Feature Extraction]
+   ├── 2x2 Blocks, 8x8 Cell      └── NRI-Uniform (P=8, R=1)
+   ├── 9 Orientation Bins            └── 59D Micro-Texture Histogram
+   ├── 5,940D Raw Vector                       │
+   ├── 1st-Stage StandardScaler                │
+   └── PCA Compression (k=64D)                 │
+                 │                             │
+                 └──────────────┬──────────────┘
+                                ▼
+                     [3. Feature Fusion]
+                       └── Concatenation: 64D + 59D = 123D
+                                │
+                                ▼
+                     [4. 2nd-Stage StandardScaler]
+                                │
+                                ▼
+                     [5. RBF-SVM Classification]
+                                │
+                                ▼
+          [Output: 32 Species Prediction (97.56% Accuracy)]
 ```
 
 ---
