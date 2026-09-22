@@ -2,13 +2,43 @@
 
 Traditional computer vision pipeline for classifying plant leaf images across 32 species using the Flavia dataset.
 
+---
+
+## 🏗️ Method & Pipeline Architecture
+
+```mermaid
+flowchart TD
+    subgraph Preprocessing ["1. Preprocessing Pipeline"]
+        A["Input Leaf Image (RGB)"] --> B["Grayscale & Contrast Normalization"]
+        B --> C["Otsu Thresholding & Background Removal"]
+        C --> D["Image Moments: Centering & Vertical Alignment"]
+        D --> E["Normalized Standard Canvas (256x256)"]
+    end
+
+    subgraph FeatureExtraction ["2. Dual Feature Extraction"]
+        E --> F["HOG Descriptor (2x2 blocks, 8x8 cell, 9 bins) - 5,940D"]
+        E --> G["Uniform LBP (P=8, R=1, NRI-Uniform) - 59D"]
+        F --> H["StandardScaler -> PCA Compression (k=64)"]
+    end
+
+    subgraph FusionAndClassification ["3. Fusion & Classification"]
+        H --> I["Feature Concatenation (64D + 59D = 123D)"]
+        G --> I
+        I --> J["StandardScaler Normalization"]
+        J --> K["Support Vector Machine (RBF Kernel)"]
+        K --> L["Output: Plant Species Prediction (32 Classes, 97.56% Accuracy)"]
+    end
+```
+
+---
+
 ## Features
 
 - Otsu segmentation, moment-based vertical alignment, and centroid centering
-- HOG (Histogram of Oriented Gradients) feature extraction with 2x2 blocks
+- HOG (Histogram of Oriented Gradients) feature extraction with 2x2 blocks (5,940D)
 - Uniform LBP (Local Binary Patterns) histogram extraction (59D)
-- PCA dimensionality reduction for HOG feature optimization
-- Feature fusion (HOG PCA + LBP) with RBF-SVM classification
+- PCA dimensionality reduction for HOG feature optimization (k=64)
+- Feature fusion (HOG PCA + LBP = 123D) with RBF-SVM classification
 - Hyperparameter tuning and model evaluation across feature sets
 
 ## Requirements
@@ -80,6 +110,8 @@ python -m src.evaluate --feature-set hog_pca_lbp
 ```text
 .
 ├── data/           # Dataset metadata and splits
+├── experiments/    # SOTA reproduction modules (Sulc & Matas ECCV 2014)
+│   └── sulc_matas/
 ├── models/         # Trained model artifacts
 ├── results/        # Metrics, figures, and predictions
 ├── src/            # Source code
