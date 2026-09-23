@@ -120,8 +120,6 @@ python -m src.evaluate --feature-set hog_pca_lbp
 ```text
 .
 ├── data/           # Dataset metadata and splits
-├── experiments/    # SOTA reproduction modules (Sulc & Matas ECCV 2014)
-│   └── sulc_matas/
 ├── models/         # Trained model artifacts
 ├── results/        # Metrics, figures, and predictions
 ├── src/            # Source code
