@@ -44,7 +44,7 @@ def build_feature_matrix(
     dataframe: pd.DataFrame,
     feature_set: str,
 ) -> tuple[np.ndarray, np.ndarray]:
-  """Extract handcrafted features and labels from a dataset split dataframe."""
+  """Extract feature matrix and labels for a dataset split."""
   feature_vectors = []
   total_samples = len(dataframe)
 
@@ -68,7 +68,7 @@ def build_feature_matrix(
 def build_raw_representations(
     dataframe: pd.DataFrame,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-  """Extract separate raw HOG and LBP matrices for PCA fusion pipeline."""
+  """Extract raw HOG and LBP matrices for PCA fusion."""
   hog_vectors = []
   lbp_vectors = []
   total_samples = len(dataframe)
@@ -89,7 +89,7 @@ def build_raw_representations(
 
 
 def create_final_model(C: float, gamma: str | float) -> Pipeline:
-  """Create the final scaled RBF-SVM using validation-selected parameters."""
+  """Create final StandardScaler + RBF-SVM pipeline with probability estimation."""
   return Pipeline(
       steps=[
           ("scaler", StandardScaler()),

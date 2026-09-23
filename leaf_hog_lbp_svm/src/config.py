@@ -16,7 +16,7 @@ TEST_SPLIT_PATH = DATA_DIR / "test.csv"
 
 IMAGE_SIZE = (100, 134)
 
-# Dalal & Triggs (CVPR 2005) Original HOG: 2x2 overlapping blocks (5,940 dimensions)
+# HOG parameters (100x134 canvas -> 165 blocks x 36 = 5940 dimensions)
 HOG_PARAMS = {
     "orientations": 9,
     "pixels_per_cell": (8, 8),
@@ -24,14 +24,14 @@ HOG_PARAMS = {
     "block_norm": "L2",
 }
 
-# Ojala et al. (TPAMI 2002) Non-rotation-invariant Uniform LBP (59 dimensions)
+# Uniform LBP parameters (59 dimensions)
 LBP_PARAMS = {
     "radius": 1,
     "n_points": 8,
     "method": "nri_uniform",
 }
 
-# Optimal PCA dimension for HOG 2x2 reduction
+# PCA components for HOG reduction
 PCA_HOG_COMPONENTS = 64
 
 RANDOM_STATE = 42

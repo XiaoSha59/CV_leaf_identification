@@ -102,7 +102,7 @@ def segment_and_normalize_leaf(
     image_bgr: np.ndarray,
     target_size: tuple[int, int] = IMAGE_SIZE,
 ) -> np.ndarray:
-    """End-to-end morphological preprocessing pipeline (Islam et al., 2019)."""
+    """Preprocess image: segment, align vertically, crop and resize."""
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
     mask = create_leaf_mask(gray)
     leaf_cnt, area = get_largest_contour(mask)
@@ -121,7 +121,7 @@ def to_gray_resize(
     image_bgr: np.ndarray,
     target_size: tuple[int, int] = IMAGE_SIZE,
 ) -> np.ndarray:
-    """Convenience entry point for preprocessing."""
+    """Preprocess image to normalized grayscale."""
     return segment_and_normalize_leaf(image_bgr, target_size=target_size)
 
 
@@ -129,7 +129,7 @@ def preprocess_image(
     image_path: str | Path,
     target_size: tuple[int, int] = IMAGE_SIZE,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Return original BGR and normalized grayscale image."""
+    """Load image and return original BGR and normalized grayscale."""
     image_bgr = load_bgr(image_path)
     image_gray = segment_and_normalize_leaf(image_bgr, target_size=target_size)
     return image_bgr, image_gray
@@ -139,7 +139,7 @@ def save_preprocessing_steps_figure(
     image_path: str | Path,
     output_path: str | Path | None = None,
 ) -> Path:
-    """Save multi-panel step-by-step preprocessing visualization figure."""
+    """Save visualization of preprocessing steps."""
     image_bgr = load_bgr(image_path)
     image_rgb = bgr_to_rgb(image_bgr)
     gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)

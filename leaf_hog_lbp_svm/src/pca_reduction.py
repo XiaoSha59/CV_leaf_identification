@@ -1,10 +1,3 @@
-"""PCA Dimensionality Reduction Module for HOG Features with Standard Scaling.
-
-This module encapsulates a two-stage local transformer (StandardScaler + PCA)
-specifically designed to scale high-dimensional HOG feature vectors (5,940D)
-before projecting them onto k principal components (e.g., 64D).
-"""
-
 from pathlib import Path
 
 import joblib
@@ -21,7 +14,7 @@ def fit_pca(
     n_components: int | float = PCA_HOG_COMPONENTS,
     random_state: int = RANDOM_STATE,
 ) -> Pipeline:
-    """Fit a combined StandardScaler + PCA pipeline on HOG features."""
+    """Fit StandardScaler + PCA pipeline on features."""
     pipeline = Pipeline(
         steps=[
             ("scaler", StandardScaler()),
@@ -49,7 +42,7 @@ def transform_pca(
     X_features: np.ndarray,
     pca_pipeline: Pipeline | PCA,
 ) -> np.ndarray:
-    """Standardize and project HOG features onto fitted principal components."""
+    """Project features using fitted PCA pipeline."""
     return pca_pipeline.transform(X_features).astype(np.float32)
 
 
@@ -58,7 +51,7 @@ def fit_transform_pca(
     n_components: int | float = PCA_HOG_COMPONENTS,
     random_state: int = RANDOM_STATE,
 ) -> tuple[Pipeline, np.ndarray]:
-    """Fit Scaled PCA on feature matrix and return both the pipeline and transformed features."""
+    """Fit PCA and transform features."""
     pipeline = fit_pca(
         X_features,
         n_components=n_components,
@@ -72,7 +65,7 @@ def save_pca(
     pca_pipeline: Pipeline | PCA,
     output_path: str | Path | None = None,
 ) -> Path:
-    """Persist the fitted Scaled PCA transformer pipeline to disk."""
+    """Save fitted PCA pipeline to disk."""
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
     if isinstance(pca_pipeline, Pipeline):
@@ -91,7 +84,7 @@ def save_pca(
 
 
 def load_pca(model_path: str | Path) -> Pipeline | PCA:
-    """Load a previously fitted Scaled PCA pipeline from disk."""
+    """Load saved PCA pipeline from disk."""
     path = Path(model_path)
     if not path.exists():
         raise FileNotFoundError(f"PCA model file not found: {path}")

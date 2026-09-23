@@ -28,7 +28,7 @@ def build_feature_matrix(
     dataframe: pd.DataFrame,
     feature_set: str,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Extract a feature matrix X and label array y for a given dataset split."""
+    """Extract feature matrix and labels for a dataset split."""
     feature_vectors = []
     total_samples = len(dataframe)
 
@@ -49,7 +49,7 @@ def build_feature_matrix(
 def build_raw_representations(
     dataframe: pd.DataFrame,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Extract separate raw HOG and LBP matrices for PCA fusion pipeline."""
+    """Extract raw HOG and LBP matrices for PCA fusion."""
     hog_vectors = []
     lbp_vectors = []
     total_samples = len(dataframe)
@@ -70,7 +70,7 @@ def build_raw_representations(
 
 
 def create_svm_pipeline(C: float, gamma: str | float) -> Pipeline:
-    """Construct a machine learning pipeline with feature scaling and RBF-SVM."""
+    """Create StandardScaler + RBF-SVM pipeline."""
     return Pipeline(
         steps=[
             ("scaler", StandardScaler()),
@@ -93,7 +93,7 @@ def tune_on_validation(
     X_val: np.ndarray,
     y_val: np.ndarray,
 ) -> tuple[Pipeline, dict]:
-    """Evaluate candidate hyperparameter configurations on the validation set."""
+    """Tune SVM hyperparameters on validation set."""
     C_values = [0.1, 1, 10, 100]
     gamma_values: list[str | float] = ["scale", 0.001, 0.01]
 
@@ -148,7 +148,7 @@ def save_training_artifacts(
     feature_set: str,
     feature_dimension: int,
 ) -> None:
-    """Persist the trained pipeline and validation performance metrics to disk."""
+    """Save trained model and validation metrics to disk."""
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     METRICS_DIR.mkdir(parents=True, exist_ok=True)
 

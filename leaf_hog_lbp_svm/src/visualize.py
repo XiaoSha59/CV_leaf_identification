@@ -38,7 +38,7 @@ def minmax_normalize(image: np.ndarray) -> np.ndarray:
 
 
 def render_diverse_10_dataset_showcase(output_path: Path | None = None) -> Path:
-    """Render a large, clear, high-resolution showcase of 10 diverse botanical leaf species."""
+    """Render a grid showing 10 sample leaf species."""
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     if output_path is None:
         output_path = FIGURES_DIR / "diverse_10_species_showcase.png"
@@ -104,7 +104,7 @@ def render_diverse_10_dataset_showcase(output_path: Path | None = None) -> Path:
 
 
 def render_method_architecture_diagram(output_path: Path | None = None) -> Path:
-    """Render a clean, spacious, perfectly formatted academic pipeline diagram with zero text overflow."""
+    """Render pipeline architecture diagram."""
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     if output_path is None:
         output_path = FIGURES_DIR / "method_architecture_pipeline.png"
@@ -115,7 +115,7 @@ def render_method_architecture_diagram(output_path: Path | None = None) -> Path:
     ax.axis("off")
 
     def draw_academic_box(x, y, w, h, title, lines=None, fill_color="#f8fafc", border_color="#1e293b", title_bg="#e2e8f0"):
-        """Draw an academic box with ample text clearance."""
+        """Draw an annotated box."""
         rect = patches.FancyBboxPatch(
             (x, y), w, h,
             boxstyle="round,pad=0.08,rounding_size=0.16",

@@ -1,10 +1,3 @@
-"""Optimal PCA Dimension (k) Selection Module.
-
-This script executes a systematic sweep over candidate PCA dimensions (k)
-on the Validation set to find the optimal number of components for HOG 2x2 features.
-It evaluates variance retention, validation accuracy, macro F1 score, and fusion balance.
-"""
-
 import argparse
 from pathlib import Path
 from time import perf_counter
@@ -32,7 +25,7 @@ from src.preprocess import preprocess_image
 def extract_raw_representations(
     df: pd.DataFrame,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Extract raw HOG (5,940D) and LBP (59D) arrays for a dataframe split."""
+    """Extract raw HOG and LBP features for a dataframe split."""
     hog_vectors = []
     lbp_vectors = []
 
